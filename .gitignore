@@ -1,0 +1,22 @@
+.vs/
+**/bin/
+**/obj/
+
+# Visual Studio user-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Build and test output
+[Dd]ebug/
+[Rr]elease/
+[Aa]rtifacts/
+
+# NuGet packages and local tooling caches
+packages/
+.dotnet/
+
+# OS metadata
+.DS_Store
+Thumbs.db
