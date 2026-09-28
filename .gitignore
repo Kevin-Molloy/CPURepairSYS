@@ -1,14 +1,17 @@
 .vs/
+.idea/
+.vscode/
 **/bin/
 **/obj/
 
-# Visual Studio user-specific files
+# User-specific files
 *.user
 *.suo
 *.userosscache
 *.sln.docstates
+*.userprefs
 
-# Build and test output
+# Build output
 [Dd]ebug/
 [Rr]elease/
 [Aa]rtifacts/
