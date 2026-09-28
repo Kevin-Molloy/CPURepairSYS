@@ -19,6 +19,7 @@
 # NuGet packages and local tooling caches
 packages/
 .dotnet/
+.sonarqube/
 
 # OS metadata
 .DS_Store
