@@ -1,0 +1,80 @@
+@startuml
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+
+package "CPURepairSYS" {
+  class Customer {
+    -custId : int
+    -fName : string
+    -sName : string
+    -phone : string
+    -email : string
+    +findCustomer(phone, name) : int
+    +getCustomer(id) : void
+    +AddCustomer() : void
+    +getNextCustId() : int
+    +getCustomerName(custId) : void
+  }
+
+  class Part {
+    -partId : int
+    -description : string
+    -price : decimal
+    -quantity : int
+    -status : string
+    -partTypeCode : string
+    +AddPart() : void
+    +findPart(desc) : DataSet
+    +estFindPart(desc) : DataSet
+    +disFindPart(desc) : DataSet
+    +getPart(id) : void
+    +updatePart() : void
+    +discontinuePart() : void
+    +getNextPartId() : int
+    +analyseParts(year, orderBy, discontinued, outOfStock) : DataSet
+  }
+
+  class Repair {
+    -repairId : int
+    -description : string
+    -status : string
+    -price : decimal
+    -startDate : string
+    -completeDate : string
+    -repairTypeCode : string
+    -custId : int
+    +LogRepair() : void
+    +findRepair(type, status) : DataSet
+    +getRepair(id) : void
+    +findPrice(id) : decimal
+    +estimateRepairPrice(custId, repairId, price, ids, quantities, flags, partPrices) : void
+    +confirmRepair(repairId, date) : void
+    +denyRepair(repairId, date) : void
+    +completeRepair(repairId, date) : void
+    +listRepairs(year, orderBy, cancelled, inProgress) : DataSet
+    +getRev(year, cancelled) : DataSet
+    +calcRev(year, cancelled) : decimal
+    +getNextRepairId() : int
+  }
+
+  class PartTypeCode {
+    -partTypeCode : string
+    -description : string
+    +getPartTypeCodes() : DataSet
+  }
+
+  class RepairTypeCode {
+    -repairTypeCode : string
+    -description : string
+    +getRepairTypeCodes() : DataSet
+  }
+
+
+}
+Repair "0..*" <-- "1..*" Part : repairId
+Customer "1" <-- "0..*" Repair : custId
+PartTypeCode ..> Part : type lookup
+RepairTypeCode ..> Repair : type lookup
+
+@enduml

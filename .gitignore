@@ -15,6 +15,7 @@
 [Dd]ebug/
 [Rr]elease/
 [Aa]rtifacts/
+code-smells.sarif
 
 # NuGet packages and local tooling caches
 packages/
