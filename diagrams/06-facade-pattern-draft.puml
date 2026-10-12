@@ -1,0 +1,61 @@
+@startuml
+title CPURepairSYS - Facade
+
+skinparam shadowing false
+skinparam packageStyle rectangle
+
+
+  class RepairController
+  class InventoryController
+  class ReportingController
+
+
+  class RepairFacade <<facade>>
+  class InventoryFacade <<facade>>
+  class ReportingFacade <<facade>>
+  class RepairService
+  class InventoryService
+  class ReportingService
+
+
+  class Customer
+  class Repair
+  class Estimate
+  class RepairItem
+  class Part
+
+
+  interface IRepairRepository
+  interface IPartRepository
+  interface IReportRepository
+  interface IUnitOfWork
+  class OracleRepositoryAdapter
+
+
+RepairController --> RepairFacade
+InventoryController --> InventoryFacade
+ReportingController --> ReportingFacade
+
+RepairFacade --> RepairService
+InventoryFacade --> InventoryService
+ReportingFacade --> ReportingService
+
+RepairService --> Repair
+RepairService --> Customer
+RepairService --> Estimate
+RepairService --> IRepairRepository
+RepairService --> IPartRepository
+RepairService --> IUnitOfWork
+
+InventoryService --> Part
+InventoryService --> IPartRepository
+ReportingService --> IReportRepository
+
+Estimate *-- RepairItem
+RepairItem --> Part
+
+IRepairRepository <|.. OracleRepositoryAdapter
+IPartRepository <|.. OracleRepositoryAdapter
+IReportRepository <|.. OracleRepositoryAdapter
+
+@enduml

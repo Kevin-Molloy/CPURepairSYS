@@ -1,0 +1,57 @@
+@startuml
+title CPURepairSYS -  State Pattern
+
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+
+
+  class RepairController <<controller>> {
+  }
+
+  class RepairApplicationService <<service>> {
+  }
+
+  class RepairContext <<context>> {
+  }
+
+  interface IRepairState <<state>> {
+  }
+
+  class LoggedState <<state>> {
+  }
+  class EstimatedState <<state>> {
+  }
+  class ApprovedState <<state>> {
+  }
+  class CompletedState <<state>>
+  class CancelledState <<state>>
+
+  class Estimate <<aggregate>>
+  class RepairItem <<entity>>
+  class Part <<entity>>
+
+
+  interface IRepairRepository <<repository>> {
+  }
+  class OracleRepairRepository <<adapter>>
+  interface IUnitOfWork <<unit of work>> {
+  }
+
+
+IRepairState <|.. LoggedState
+IRepairState <|.. EstimatedState
+IRepairState <|.. ApprovedState
+IRepairState <|.. CompletedState
+IRepairState <|.. CancelledState
+RepairContext o-- IRepairState
+Estimate "1" *-- "1..*" RepairItem
+RepairItem "*" --> "1" Part
+RepairController --> RepairApplicationService
+RepairApplicationService --> RepairContext
+RepairApplicationService --> Estimate
+RepairApplicationService --> IRepairRepository
+RepairApplicationService --> IUnitOfWork
+IRepairRepository <|.. OracleRepairRepository
+
+@enduml

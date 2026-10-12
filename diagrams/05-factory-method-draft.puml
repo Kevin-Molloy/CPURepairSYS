@@ -1,0 +1,48 @@
+@startuml
+title CPURepairSYS - Factory Method
+
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+
+
+  class RepairController <<controller>> {
+    +logRepair(request) : Response
+  }
+
+
+
+  class RepairApplicationService <<service>> {
+  }
+
+
+
+  abstract class RepairFactory <<creator>> {
+  }
+
+  class EfRepairFactory <<concrete creator>> {
+  }
+
+  class Repair {
+  }
+
+
+
+  interface IRepairRepository <<repository>> {
+  }
+  class OracleRepairRepository <<adapter>>
+  interface IUnitOfWork <<unit of work>> {
+  }
+
+
+RepairFactory <|-- EfRepairFactory
+RepairFactory ..> Repair : creates
+EfRepairFactory --> IRepairRepository
+IRepairRepository <|.. OracleRepairRepository
+RepairController --> RepairApplicationService
+RepairApplicationService --> RepairFactory
+RepairApplicationService --> IUnitOfWork
+RepairApplicationService --> Repair
+IUnitOfWork --> IRepairRepository
+
+@enduml

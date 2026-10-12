@@ -3,6 +3,8 @@
 .vscode/
 **/bin/
 **/obj/
+docstore/*
+*md
 
 # User-specific files
 *.user
