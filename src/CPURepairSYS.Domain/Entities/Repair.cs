@@ -1,0 +1,104 @@
+using CPURepairSYS.Domain.Exceptions;
+using CPURepairSYS.Domain.States;
+using CPURepairSYS.Domain.ValueObjects;
+
+namespace CPURepairSYS.Domain.Entities;
+
+public enum RepairStatus
+{
+    Logged,
+    Estimated,
+    Approved,
+    Completed,
+    Cancelled
+}
+
+public sealed class Repair
+{
+    private readonly List<RepairItem> items = new();
+    private IRepairState state;
+
+    private Repair(RepairId id, string description, string repairTypeCode, CustomerId customerId, DateOnly startDate)
+    {
+        Id = id;
+        Description = ValidateDescription(description);
+        RepairTypeCode = ValidateCode(repairTypeCode, nameof(repairTypeCode), 8);
+        CustomerId = customerId;
+        StartDate = startDate;
+        Price = Money.Zero;
+        state = LoggedState.Instance;
+    }
+
+    public RepairId Id { get; }
+    public string Description { get; }
+    public string RepairTypeCode { get; }
+    public CustomerId CustomerId { get; }
+    public DateOnly StartDate { get; }
+    public DateOnly? ApprovedDate { get; private set; }
+    public DateOnly? CompletedDate { get; private set; }
+    public DateOnly? CancelledDate { get; private set; }
+    public Money Price { get; private set; }
+    public RepairStatus Status => state.Status;
+    public IReadOnlyList<RepairItem> Items => items;
+
+    public static Repair CreateLogged(RepairId id, string description, string repairTypeCode, CustomerId customerId, DateOnly startDate) =>
+        new(id, description, repairTypeCode, customerId, startDate);
+
+    public void CreateEstimate(IEnumerable<RepairItem> estimateItems)
+    {
+        var materialisedItems = estimateItems?.ToList() ?? throw new ArgumentNullException(nameof(estimateItems));
+        state.CreateEstimate(this, materialisedItems);
+    }
+
+    public void Approve(DateOnly date) => state.Approve(this, date);
+
+    public void Complete(DateOnly date) => state.Complete(this, date);
+
+    public void Cancel(DateOnly date) => state.Cancel(this, date);
+
+    internal void ApplyEstimate(IReadOnlyCollection<RepairItem> estimateItems)
+    {
+        if (estimateItems.Count == 0) throw new InvalidDomainOperationException("An estimate must contain at least one part.");
+        if (estimateItems.GroupBy(item => item.PartId).Any(group => group.Count() > 1))
+        {
+            throw new InvalidDomainOperationException("An estimate cannot contain duplicate parts.");
+        }
+
+        items.Clear();
+        items.AddRange(estimateItems);
+        Price = items.Select(item => item.Total).Aggregate(Money.Zero, (total, itemTotal) => total + itemTotal);
+        state = EstimatedState.Instance;
+    }
+
+    internal void ApplyApproval(DateOnly date)
+    {
+        ApprovedDate = date;
+        state = ApprovedState.Instance;
+    }
+
+    internal void ApplyCompletion(DateOnly date)
+    {
+        CompletedDate = date;
+        state = CompletedState.Instance;
+    }
+
+    internal void ApplyCancellation(DateOnly date)
+    {
+        CancelledDate = date;
+        state = CancelledState.Instance;
+    }
+
+    private static string ValidateDescription(string value)
+    {
+        var normalised = value?.Trim() ?? string.Empty;
+        if (normalised.Length == 0 || normalised.Length > 200) throw new ArgumentException("A repair description is required.", nameof(value));
+        return normalised;
+    }
+
+    private static string ValidateCode(string value, string parameterName, int maxLength)
+    {
+        var normalised = value?.Trim() ?? string.Empty;
+        if (normalised.Length == 0 || normalised.Length > maxLength) throw new ArgumentException($"{parameterName} is required.", parameterName);
+        return normalised;
+    }
+}
