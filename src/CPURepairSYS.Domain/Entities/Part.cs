@@ -12,6 +12,12 @@ public enum PartStatus
 
 public sealed class Part
 {
+    private Part()
+    {
+        Description = null!;
+        PartTypeCode = null!;
+    }
+
     private Part(PartId id, string description, Money price, int quantity, string partTypeCode)
     {
         Id = id;
@@ -22,7 +28,7 @@ public sealed class Part
         Status = quantity == 0 ? PartStatus.OutOfStock : PartStatus.Available;
     }
 
-    public PartId Id { get; }
+    public PartId Id { get; private set; }
     public string Description { get; private set; }
     public Money Price { get; private set; }
     public int Quantity { get; private set; }
@@ -31,6 +37,15 @@ public sealed class Part
 
     public static Part Create(PartId id, string description, Money price, int quantity, string partTypeCode) =>
         new(id, description, price, quantity, partTypeCode);
+
+    internal static Part Rehydrate(PartId id, string description, Money price, int quantity, PartStatus status, string partTypeCode)
+    {
+        var part = new Part(id, description, price, quantity, partTypeCode)
+        {
+            Status = status
+        };
+        return part;
+    }
 
     public void Allocate(int quantity)
     {

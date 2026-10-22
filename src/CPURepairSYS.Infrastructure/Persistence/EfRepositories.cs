@@ -1,0 +1,101 @@
+using CPURepairSYS.Application.Abstractions.Persistence;
+using CPURepairSYS.Domain.Entities;
+using CPURepairSYS.Domain.ValueObjects;
+using Microsoft.EntityFrameworkCore;
+
+namespace CPURepairSYS.Infrastructure.Persistence;
+
+internal sealed class EfCustomerRepository(RepairDbContext db) : ICustomerRepository
+{
+    public Task<Customer?> GetByIdAsync(CustomerId id, CancellationToken cancellationToken = default) =>
+        db.Customers.SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+
+    public async Task<IReadOnlyList<Customer>> SearchAsync(string? phone, string? firstName, CancellationToken cancellationToken = default)
+    {
+        var query = db.Customers.AsNoTracking();
+        if (!string.IsNullOrWhiteSpace(phone))
+        {
+            query = query.Where(x => x.Phone == new PhoneNumber(phone));
+        }
+
+        if (!string.IsNullOrWhiteSpace(firstName))
+        {
+            query = query.Where(x => x.FirstName.Contains(firstName.Trim().ToUpperInvariant()));
+        }
+
+        return await query.OrderBy(x => x.Surname).ThenBy(x => x.FirstName).ToListAsync(cancellationToken);
+    }
+
+    public Task AddAsync(Customer customer, CancellationToken cancellationToken = default)
+    {
+        db.Customers.Add(customer);
+        return Task.CompletedTask;
+    }
+}
+
+internal sealed class EfPartRepository(RepairDbContext db) : IPartRepository
+{
+    public Task<Part?> GetByIdAsync(PartId id, CancellationToken cancellationToken = default) =>
+        db.Parts.SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+
+    public async Task<IReadOnlyList<Part>> SearchAsync(string? description, CancellationToken cancellationToken = default) =>
+        await SearchQuery(description).ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<Part>> SearchAvailableAsync(string? description, CancellationToken cancellationToken = default) =>
+        await SearchQuery(description).Where(x => x.Status == PartStatus.Available).ToListAsync(cancellationToken);
+
+    public Task AddAsync(Part part, CancellationToken cancellationToken = default)
+    {
+        db.Parts.Add(part);
+        return Task.CompletedTask;
+    }
+
+    public void Update(Part part) => db.Parts.Update(part);
+
+    private IQueryable<Part> SearchQuery(string? description)
+    {
+        var query = db.Parts.AsNoTracking();
+        return string.IsNullOrWhiteSpace(description)
+            ? query.OrderBy(x => x.Description)
+            : query.Where(x => x.Description.Contains(description.Trim())).OrderBy(x => x.Description);
+    }
+}
+
+internal sealed class EfRepairRepository(RepairDbContext db) : IRepairRepository
+{
+    public Task<Repair?> GetByIdAsync(RepairId id, CancellationToken cancellationToken = default) =>
+        db.Repairs.Include(x => x.Items).SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+
+    public async Task<IReadOnlyList<Repair>> SearchAsync(string? repairTypeCode, RepairStatus? status, CancellationToken cancellationToken = default)
+    {
+        var query = db.Repairs.Include(x => x.Items).AsNoTracking();
+        if (!string.IsNullOrWhiteSpace(repairTypeCode))
+        {
+            query = query.Where(x => x.RepairTypeCode == repairTypeCode.Trim());
+        }
+
+        if (status.HasValue)
+        {
+            query = query.Where(x => x.Status == status.Value);
+        }
+
+        return await query.OrderByDescending(x => x.StartDate).ToListAsync(cancellationToken);
+    }
+
+    public Task AddAsync(Repair repair, CancellationToken cancellationToken = default)
+    {
+        db.Repairs.Add(repair);
+        return Task.CompletedTask;
+    }
+
+    public void Update(Repair repair) => db.Repairs.Update(repair);
+}
+
+internal sealed class EfUnitOfWork(RepairDbContext db) : IUnitOfWork
+{
+    public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) =>
+        db.SaveChangesAsync(cancellationToken);
+
+    public async Task<IAsyncDisposable> BeginTransactionAsync(CancellationToken cancellationToken = default) =>
+        await db.Database.BeginTransactionAsync(cancellationToken);
+}

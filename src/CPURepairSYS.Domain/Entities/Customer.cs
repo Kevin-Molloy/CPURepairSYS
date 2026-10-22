@@ -4,6 +4,13 @@ namespace CPURepairSYS.Domain.Entities;
 
 public sealed class Customer
 {
+    private Customer()
+    {
+        FirstName = null!;
+        Surname = null!;
+        Email = null!;
+    }
+
     private Customer(CustomerId id, string firstName, string surname, PhoneNumber phone, string email)
     {
         Id = id;
@@ -13,7 +20,7 @@ public sealed class Customer
         Email = ValidateText(email, nameof(email), 25);
     }
 
-    public CustomerId Id { get; }
+    public CustomerId Id { get; private set; }
     public string FirstName { get; private set; }
     public string Surname { get; private set; }
     public PhoneNumber Phone { get; private set; }
@@ -21,6 +28,9 @@ public sealed class Customer
 
     public static Customer Create(CustomerId id, string firstName, string surname, PhoneNumber phone, string email) =>
         new(id, firstName.ToUpperInvariant(), surname.ToUpperInvariant(), phone, email);
+
+    internal static Customer Rehydrate(CustomerId id, string firstName, string surname, PhoneNumber phone, string email) =>
+        new(id, firstName, surname, phone, email);
 
     private static string ValidateText(string value, string parameterName, int maxLength)
     {

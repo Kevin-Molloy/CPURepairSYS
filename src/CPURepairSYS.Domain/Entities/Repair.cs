@@ -15,8 +15,17 @@ public enum RepairStatus
 
 public sealed class Repair
 {
+    private Repair()
+    {
+        Description = null!;
+        RepairTypeCode = null!;
+        state = LoggedState.Instance;
+        persistedStatus = RepairStatus.Logged;
+    }
+
     private readonly List<RepairItem> items = new();
     private IRepairState state;
+    private RepairStatus persistedStatus;
 
     private Repair(RepairId id, string description, string repairTypeCode, CustomerId customerId, DateOnly startDate)
     {
@@ -27,9 +36,10 @@ public sealed class Repair
         StartDate = startDate;
         Price = Money.Zero;
         state = LoggedState.Instance;
+        persistedStatus = RepairStatus.Logged;
     }
 
-    public RepairId Id { get; }
+    public RepairId Id { get; private set; }
     public string Description { get; }
     public string RepairTypeCode { get; }
     public CustomerId CustomerId { get; }
@@ -39,10 +49,53 @@ public sealed class Repair
     public DateOnly? CancelledDate { get; private set; }
     public Money Price { get; private set; }
     public RepairStatus Status => state.Status;
+    private RepairStatus PersistedStatus
+    {
+        get => persistedStatus;
+        set
+        {
+            persistedStatus = value;
+            state = CreateState(value);
+        }
+    }
     public IReadOnlyList<RepairItem> Items => items;
 
     public static Repair CreateLogged(RepairId id, string description, string repairTypeCode, CustomerId customerId, DateOnly startDate) =>
         new(id, description, repairTypeCode, customerId, startDate);
+
+    internal static Repair Rehydrate(
+        RepairId id,
+        string description,
+        string repairTypeCode,
+        CustomerId customerId,
+        DateOnly startDate,
+        RepairStatus status,
+        Money price,
+        DateOnly? approvedDate,
+        DateOnly? completedDate,
+        DateOnly? cancelledDate,
+        IEnumerable<RepairItem> estimateItems)
+    {
+        var repair = new Repair(id, description, repairTypeCode, customerId, startDate)
+        {
+            Price = price,
+            ApprovedDate = approvedDate,
+            CompletedDate = completedDate,
+            CancelledDate = cancelledDate
+        };
+        repair.items.AddRange(estimateItems);
+        repair.state = status switch
+        {
+            RepairStatus.Logged => LoggedState.Instance,
+            RepairStatus.Estimated => EstimatedState.Instance,
+            RepairStatus.Approved => ApprovedState.Instance,
+            RepairStatus.Completed => CompletedState.Instance,
+            RepairStatus.Cancelled => CancelledState.Instance,
+            _ => throw new ArgumentOutOfRangeException(nameof(status))
+        };
+        repair.persistedStatus = status;
+        return repair;
+    }
 
     public void CreateEstimate(IEnumerable<RepairItem> estimateItems)
     {
@@ -68,25 +121,39 @@ public sealed class Repair
         items.AddRange(estimateItems);
         Price = items.Select(item => item.Total).Aggregate(Money.Zero, (total, itemTotal) => total + itemTotal);
         state = EstimatedState.Instance;
+        persistedStatus = RepairStatus.Estimated;
     }
 
     internal void ApplyApproval(DateOnly date)
     {
         ApprovedDate = date;
         state = ApprovedState.Instance;
+        persistedStatus = RepairStatus.Approved;
     }
 
     internal void ApplyCompletion(DateOnly date)
     {
         CompletedDate = date;
         state = CompletedState.Instance;
+        persistedStatus = RepairStatus.Completed;
     }
 
     internal void ApplyCancellation(DateOnly date)
     {
         CancelledDate = date;
         state = CancelledState.Instance;
+        persistedStatus = RepairStatus.Cancelled;
     }
+
+    private static IRepairState CreateState(RepairStatus status) => status switch
+    {
+        RepairStatus.Logged => LoggedState.Instance,
+        RepairStatus.Estimated => EstimatedState.Instance,
+        RepairStatus.Approved => ApprovedState.Instance,
+        RepairStatus.Completed => CompletedState.Instance,
+        RepairStatus.Cancelled => CancelledState.Instance,
+        _ => throw new ArgumentOutOfRangeException(nameof(status))
+    };
 
     private static string ValidateDescription(string value)
     {

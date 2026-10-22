@@ -1,6 +1,6 @@
 namespace CPURepairSYS.Tests.Web;
 
-public class UnitTest1
+public sealed class WebSmokeTests
 {
     [Fact]
     public void Test1()

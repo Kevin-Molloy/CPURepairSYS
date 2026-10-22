@@ -1,9 +1,20 @@
 using CPURepairSYS.Web.Components;
+using CPURepairSYS.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
+
+var oracleConnectionString = builder.Configuration.GetConnectionString("Oracle");
+if (!string.IsNullOrWhiteSpace(oracleConnectionString))
+{
+    builder.Services.AddOracleRepairPersistence(builder.Configuration);
+}
+else
+{
+    builder.Logging.AddFilter("CPURepairSYS.Infrastructure", LogLevel.Warning);
+}
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
