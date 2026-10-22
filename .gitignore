@@ -5,6 +5,7 @@
 **/obj/
 docstore/*
 *md
+*.ps1
 
 # User-specific files
 *.user
