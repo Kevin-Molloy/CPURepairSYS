@@ -32,7 +32,7 @@ jobs:
         run: |
           # Begin analysis (tells Sonar where the coverage file will be)
           dotnet sonarscanner begin /k:"CPUrepairSYS" \
-            /o:"your-organization-key" \
+            /o:"Kevin-Molloy" \
             /d:sonar.token="$SONAR_TOKEN" \
             /d:sonar.host.url="https://sonarcloud.io" \
             /d:sonar.cs.vscoveragexml.reportsPaths=coverage.xml
