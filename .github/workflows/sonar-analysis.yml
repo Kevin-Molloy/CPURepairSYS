@@ -31,7 +31,7 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}    # Created in SonarQube Cloud
         run: |
           # Begin analysis (tells Sonar where the coverage file will be)
-          dotnet sonarscanner begin /k:"CPUrepairSYS" \
+          dotnet sonarscanner begin /k:"CPURepairSYS" \
             /o:"kevin-molloy" \
             /d:sonar.token="$SONAR_TOKEN" \
             /d:sonar.host.url="https://sonarcloud.io" \
