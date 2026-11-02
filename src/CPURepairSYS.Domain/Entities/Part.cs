@@ -72,6 +72,16 @@ public sealed class Part
         Quantity = 0;
     }
 
+    public void UpdateDetails(string description, Money price, int quantity, string partTypeCode)
+    {
+        if (Status == PartStatus.Discontinued) throw new InvalidDomainOperationException("Discontinued parts cannot be updated.");
+        Description = ValidateDescription(description);
+        Price = price;
+        Quantity = ValidateQuantity(quantity);
+        PartTypeCode = ValidateCode(partTypeCode, nameof(partTypeCode), 8);
+        Status = quantity == 0 ? PartStatus.OutOfStock : PartStatus.Available;
+    }
+
     private static int ValidateQuantity(int quantity)
     {
         if (quantity < 0) throw new ArgumentOutOfRangeException(nameof(quantity));

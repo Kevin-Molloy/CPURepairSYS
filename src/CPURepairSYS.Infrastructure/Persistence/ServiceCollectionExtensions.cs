@@ -1,4 +1,5 @@
 using CPURepairSYS.Application.Abstractions.Persistence;
+using CPURepairSYS.Application;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -24,6 +25,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRepairRepository, EfRepairRepository>();
         services.AddScoped<IUnitOfWork, EfUnitOfWork>();
         services.AddScoped<IRepairDataAdapter, RepairDataAdapter>();
+        services.AddScoped<IRepairReportSource, EfRepairReportSource>();
         return services;
     }
 }
