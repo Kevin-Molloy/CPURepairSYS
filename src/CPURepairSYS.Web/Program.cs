@@ -1,4 +1,7 @@
 using CPURepairSYS.Web.Components;
+using CPURepairSYS.Application;
+using CPURepairSYS.Application.Abstractions;
+using CPURepairSYS.Web.Authorization;
 using CPURepairSYS.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -7,9 +10,11 @@ builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 
 var oracleConnectionString = builder.Configuration.GetConnectionString("Oracle");
+builder.Services.AddScoped<IApplicationAuthorizer, DevelopmentAuthorizer>();
 if (!string.IsNullOrWhiteSpace(oracleConnectionString))
 {
     builder.Services.AddOracleRepairPersistence(builder.Configuration);
+    builder.Services.AddRepairApplication();
 }
 else
 {

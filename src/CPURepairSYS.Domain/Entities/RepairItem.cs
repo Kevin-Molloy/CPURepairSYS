@@ -17,9 +17,9 @@ public sealed class RepairItem
     }
 
     public PartId PartId { get; private set; }
-    public Money UnitPrice { get; private set; }
+    public Money? UnitPrice { get; private set; }
     public int Quantity { get; private set; }
-    public Money Total => UnitPrice * Quantity;
+    public Money Total => (UnitPrice ?? Money.Zero) * Quantity;
 
     public static RepairItem Create(PartId partId, Money unitPrice, int quantity) => new(partId, unitPrice, quantity);
 }

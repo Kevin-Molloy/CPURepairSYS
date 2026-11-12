@@ -1,3 +1,4 @@
+using System.Globalization;
 using CPURepairSYS.Domain.Entities;
 using CPURepairSYS.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
@@ -8,6 +9,16 @@ namespace CPURepairSYS.Infrastructure.Persistence;
 
 internal static class PersistenceConversions
 {
+    public static string? DateOnlyToOracleString(DateOnly? value) =>
+        value?.ToString("dd/MMM/yy", CultureInfo.InvariantCulture);
+
+    public static DateOnly? OracleStringToDateOnly(string? value) =>
+        string.IsNullOrWhiteSpace(value)
+            ? null
+            : DateOnly.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out var result)
+                ? result
+                : throw new InvalidOperationException($"Invalid Oracle repair date '{value}'.");
+
     public static string PartStatusToCode(PartStatus status) => status switch
     {
         PartStatus.Available => "A",
@@ -49,15 +60,15 @@ internal sealed class CustomerConfiguration : IEntityTypeConfiguration<Customer>
 {
     public void Configure(EntityTypeBuilder<Customer> builder)
     {
-        builder.ToTable("Customers");
+        builder.ToTable("CUSTOMERS");
         builder.HasKey(x => x.Id);
-        builder.Property(x => x.Id).HasColumnName("CustId").ValueGeneratedOnAdd().HasDefaultValueSql("SEQ_CUSTOMERS.NEXTVAL")
+        builder.Property(x => x.Id).HasColumnName("CUSTID").ValueGeneratedOnAdd().HasDefaultValueSql("SEQ_CUSTOMERS.NEXTVAL")
             .HasConversion(x => x.Value, x => new CustomerId(x));
-        builder.Property(x => x.FirstName).HasColumnName("FName").HasMaxLength(15).IsRequired();
-        builder.Property(x => x.Surname).HasColumnName("SName").HasMaxLength(15).IsRequired();
-        builder.Property(x => x.Phone).HasColumnName("Phone").HasMaxLength(10).IsRequired()
+        builder.Property(x => x.FirstName).HasColumnName("FNAME").HasMaxLength(15).IsRequired();
+        builder.Property(x => x.Surname).HasColumnName("SNAME").HasMaxLength(15).IsRequired();
+        builder.Property(x => x.Phone).HasColumnName("PHONE").HasMaxLength(10).IsRequired()
             .HasConversion(x => x.Value, x => new PhoneNumber(x));
-        builder.Property(x => x.Email).HasColumnName("Email").HasMaxLength(25).IsRequired();
+        builder.Property(x => x.Email).HasColumnName("EMAIL").HasMaxLength(25).IsRequired();
         builder.HasIndex(x => x.Phone).IsUnique();
         builder.HasIndex(x => x.Email).IsUnique();
     }
@@ -67,17 +78,17 @@ internal sealed class PartConfiguration : IEntityTypeConfiguration<Part>
 {
     public void Configure(EntityTypeBuilder<Part> builder)
     {
-        builder.ToTable("Parts");
+        builder.ToTable("PARTS");
         builder.HasKey(x => x.Id);
-        builder.Property(x => x.Id).HasColumnName("PartId").ValueGeneratedOnAdd().HasDefaultValueSql("SEQ_PARTS.NEXTVAL")
+        builder.Property(x => x.Id).HasColumnName("PARTID").ValueGeneratedOnAdd().HasDefaultValueSql("SEQ_PARTS.NEXTVAL")
             .HasConversion(x => x.Value, x => new PartId(x));
-        builder.Property(x => x.Description).HasMaxLength(50).IsRequired();
-        builder.Property(x => x.Price).HasColumnName("Price").HasPrecision(5, 2)
+        builder.Property(x => x.Description).HasColumnName("DESCRIPTION").HasMaxLength(50).IsRequired();
+        builder.Property(x => x.Price).HasColumnName("PRICE").HasPrecision(5, 2)
             .HasConversion(x => x.Amount, x => new Money(x));
-        builder.Property(x => x.Quantity).HasColumnName("Quantity").IsRequired();
-        builder.Property(x => x.Status).HasColumnName("Status").HasMaxLength(1)
+        builder.Property(x => x.Quantity).HasColumnName("QUANTITY").IsRequired();
+        builder.Property(x => x.Status).HasColumnName("STATUS").HasMaxLength(1)
             .HasConversion(new ValueConverter<PartStatus, string>(x => PersistenceConversions.PartStatusToCode(x), x => PersistenceConversions.CodeToPartStatus(x)));
-        builder.Property(x => x.PartTypeCode).HasMaxLength(8).IsRequired();
+        builder.Property(x => x.PartTypeCode).HasColumnName("PARTTYPECODE").HasMaxLength(8).IsRequired();
         builder.HasIndex(x => x.Description).IsUnique();
     }
 }
@@ -86,23 +97,29 @@ internal sealed class RepairConfiguration : IEntityTypeConfiguration<Repair>
 {
     public void Configure(EntityTypeBuilder<Repair> builder)
     {
-        builder.ToTable("Repairs");
+        builder.ToTable("REPAIRS");
         builder.HasKey(x => x.Id);
-        builder.Property(x => x.Id).HasColumnName("RepairId").ValueGeneratedOnAdd().HasDefaultValueSql("SEQ_REPAIRS.NEXTVAL")
+        builder.Property(x => x.Id).HasColumnName("REPAIRID").ValueGeneratedOnAdd().HasDefaultValueSql("SEQ_REPAIRS.NEXTVAL")
             .HasConversion(x => x.Value, x => new RepairId(x));
-        builder.Property(x => x.Description).HasMaxLength(200).IsRequired();
-        builder.Property<RepairStatus>("PersistedStatus").HasColumnName("Status").HasMaxLength(2)
+        builder.Property(x => x.Description).HasColumnName("DESCRIPTION").HasMaxLength(200).IsRequired();
+        builder.Property<RepairStatus>("PersistedStatus").HasColumnName("STATUS").HasMaxLength(2)
             .HasConversion(new ValueConverter<RepairStatus, string>(x => PersistenceConversions.RepairStatusToCode(x), x => PersistenceConversions.CodeToRepairStatus(x)));
-        builder.Property(x => x.Price).HasPrecision(6, 2).HasConversion(x => x.Amount, x => new Money(x));
-        builder.Property(x => x.StartDate).HasColumnName("StartDate").HasConversion(x => x.ToDateTime(TimeOnly.MinValue), x => DateOnly.FromDateTime(x));
-        builder.Property(x => x.CompletedDate).HasColumnName("CompleteDate")
-            .HasConversion(new ValueConverter<DateOnly?, DateTime?>(
-                x => x.HasValue ? x.Value.ToDateTime(TimeOnly.MinValue) : null,
-                x => x.HasValue ? DateOnly.FromDateTime(x.Value) : null));
+        builder.Property(x => x.Price).HasColumnName("PRICE").HasPrecision(6, 2)
+            .HasConversion(new ValueConverter<Money?, decimal?>(
+                x => x.HasValue ? x.Value.Amount : null,
+                x => x.HasValue ? new Money(x.Value) : null));
+        builder.Property(x => x.StartDate).HasColumnName("STARTDATE")
+            .HasConversion(new ValueConverter<DateOnly?, string?>(
+                x => PersistenceConversions.DateOnlyToOracleString(x),
+                x => PersistenceConversions.OracleStringToDateOnly(x)));
+        builder.Property(x => x.CompletedDate).HasColumnName("COMPLETEDATE")
+            .HasConversion(new ValueConverter<DateOnly?, string?>(
+                x => PersistenceConversions.DateOnlyToOracleString(x),
+                x => PersistenceConversions.OracleStringToDateOnly(x)));
         builder.Ignore(x => x.ApprovedDate);
         builder.Ignore(x => x.CancelledDate);
-        builder.Property(x => x.RepairTypeCode).HasMaxLength(8).IsRequired();
-        builder.Property(x => x.CustomerId).HasColumnName("CustId")
+        builder.Property(x => x.RepairTypeCode).HasColumnName("REPAIRTYPECODE").HasMaxLength(8).IsRequired();
+        builder.Property(x => x.CustomerId).HasColumnName("CUSTID")
             .HasConversion(x => x.Value, x => new CustomerId(x));
         builder.HasMany(x => x.Items).WithOne().HasForeignKey("RepairId");
         builder.HasIndex(x => x.Description).IsUnique();
@@ -114,16 +131,18 @@ internal sealed class RepairItemConfiguration : IEntityTypeConfiguration<RepairI
 {
     public void Configure(EntityTypeBuilder<RepairItem> builder)
     {
-        builder.ToTable("RepairItems");
+        builder.ToTable("REPAIRITEMS");
         builder.HasKey("RepairId", nameof(RepairItem.PartId));
-        builder.Property<RepairId>("RepairId").HasColumnName("RepairId")
+        builder.Property<RepairId>("RepairId").HasColumnName("REPAIRID")
             .HasConversion(x => x.Value, x => new RepairId(x));
-        builder.Property(x => x.PartId).HasColumnName("PartId")
+        builder.Property(x => x.PartId).HasColumnName("PARTID")
             .HasConversion(x => x.Value, x => new PartId(x));
-        builder.Property(x => x.UnitPrice).HasColumnName("Price").HasPrecision(6, 2)
-            .HasConversion(x => x.Amount, x => new Money(x));
-        builder.Property(x => x.Quantity).HasColumnName("QuantityUsed");
-        builder.Property<string>("Status").HasColumnName("Status").HasMaxLength(1).HasDefaultValue("U");
+        builder.Property(x => x.UnitPrice).HasColumnName("PRICE").HasPrecision(6, 2)
+            .HasConversion(new ValueConverter<Money?, decimal?>(
+                x => x.HasValue ? x.Value.Amount : null,
+                x => x.HasValue ? new Money(x.Value) : Money.Zero));
+        builder.Property(x => x.Quantity).HasColumnName("QUANTITYUSED");
+        builder.Property<string>("Status").HasColumnName("STATUS").HasMaxLength(1).HasDefaultValue("U");
     }
 
 }

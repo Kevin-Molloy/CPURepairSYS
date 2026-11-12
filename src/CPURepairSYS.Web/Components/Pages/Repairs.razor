@@ -1,0 +1,152 @@
+@page "/repairs"
+@rendermode InteractiveServer
+@inject RepairFacade RepairOperations
+@using System.ComponentModel.DataAnnotations
+
+<PageTitle>Repairs</PageTitle>
+<h1>Repairs</h1>
+
+<section class="form-card">
+    <h2>Search repairs</h2>
+    <div class="form-grid">
+        <label>Repair type <input @bind="searchType" /></label>
+        <label>Status
+            <select @bind="searchStatus">
+                <option value="">All statuses</option>
+                @foreach (var status in Enum.GetValues<RepairStatus>())
+                {
+                    <option value="@status">@status</option>
+                }
+            </select>
+        </label>
+    </div>
+    <button @onclick="SearchAsync" disabled="@busy">Search</button>
+</section>
+
+<section class="form-card">
+    <h2>Log repair</h2>
+    <EditForm Model="newRepair" OnValidSubmit="LogAsync">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+        <div class="form-grid">
+            <label>Repair ID <InputNumber class="generated-id" @bind-Value="newRepairId" readonly /></label>
+            <label>Customer ID <InputNumber @bind-Value="newCustomerId" /></label>
+            <label>Description <InputText @bind-Value="newRepair.Description" /></label>
+            <label>Repair type
+                <InputSelect @bind-Value="newRepair.RepairTypeCode">
+                    <option value="">Select a repair type</option>
+                    <option value="PROC">PROC</option>
+                    <option value="GCARD">GCARD</option>
+                    <option value="FAN">FAN</option>
+                    <option value="CASE">CASE</option>
+                    <option value="BATT">BATT</option>
+                    <option value="POWSUP">POWSUP</option>
+                    <option value="MTHBRD">MTHBRD</option>
+                    <option value="COOL">COOL</option>
+                    <option value="RAM">RAM</option>
+                    <option value="STOR">STOR</option>
+                    <option value="WIFIADAP">WIFIADAP</option>
+                    <option value="SCRN">SCRN</option>
+                    <option value="MULT">MULT</option>
+                    <option value="OTH">OTH</option>
+                </InputSelect>
+            </label>
+            <label>Start date <InputDate @bind-Value="newRepair.StartDate" /></label>
+        </div>
+        <button type="submit" disabled="@busy">Log repair</button>
+    </EditForm>
+</section>
+
+<PageErrors Errors="errors" />
+@if (!string.IsNullOrWhiteSpace(successMessage))
+{
+    <p class="success">@successMessage</p>
+}
+
+@if (repairs is not null)
+{
+    <table>
+        <thead><tr><th>ID</th><th>Description</th><th>Status</th><th>Price</th><th>Action</th></tr></thead>
+        <tbody>
+        @foreach (var repair in repairs)
+        {
+            <tr>
+                <td>@repair.Id.Value</td><td>@repair.Description</td><td>@repair.Status</td><td>@repair.Price</td>
+                <td><a href="/repairs/@repair.Id.Value">Open</a></td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+
+@code {
+    private string? searchType;
+    private string searchStatus = string.Empty;
+    private int newRepairId = 1;
+    private int newCustomerId = 1;
+    private bool busy;
+    private IReadOnlyList<RepairSummary>? repairs;
+    private IReadOnlyList<ValidationError> errors = Array.Empty<ValidationError>();
+    private RepairForm newRepair = new() { StartDate = DateOnly.FromDateTime(DateTime.Today) };
+    private string? successMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        newRepairId = (await RepairOperations.GetNextRepairIdAsync()).Value;
+    }
+
+    private async Task SearchAsync()
+    {
+        RepairStatus? status = Enum.TryParse<RepairStatus>(searchStatus, out var parsed) ? parsed : null;
+        await RunAsync(() => RepairOperations.SearchRepairsAsync(searchType, status));
+    }
+
+    private async Task LogAsync()
+    {
+        busy = true;
+        errors = Array.Empty<ValidationError>();
+        successMessage = null;
+        try
+        {
+            var result = await RepairOperations.LogRepairAsync(new LogRepairRequest(
+                new RepairId(newRepairId), newRepair.Description, newRepair.RepairTypeCode,
+                new CustomerId(newCustomerId), newRepair.StartDate));
+            errors = result.Errors;
+            if (result.Succeeded)
+            {
+                newRepair = new RepairForm { StartDate = DateOnly.FromDateTime(DateTime.Today) };
+                newCustomerId = 1;
+                newRepairId = (await RepairOperations.GetNextRepairIdAsync()).Value;
+                successMessage = "Repair logged successfully.";
+            }
+        }
+        catch (Exception exception)
+        {
+            errors = UserFacingErrors.From(exception);
+        }
+        finally { busy = false; }
+    }
+
+    private async Task RunAsync<T>(Func<Task<ApplicationResult<T>>> operation)
+    {
+        busy = true;
+        errors = Array.Empty<ValidationError>();
+        try
+        {
+            var result = await operation();
+            errors = result.Errors;
+            if (result.Succeeded && result.Value is IReadOnlyList<RepairSummary> found) repairs = found;
+        }
+        catch (Exception exception) { errors = UserFacingErrors.From(exception); }
+        finally { busy = false; }
+    }
+
+    private sealed class RepairForm
+    {
+        [Required, StringLength(200, ErrorMessage = "Description must be 200 characters or fewer.")]
+        public string Description { get; set; } = string.Empty;
+        [Required, StringLength(8, ErrorMessage = "Repair type is required.")]
+        public string RepairTypeCode { get; set; } = string.Empty;
+        public DateOnly StartDate { get; set; }
+    }
+}

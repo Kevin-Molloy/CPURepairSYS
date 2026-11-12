@@ -1,0 +1,68 @@
+@page "/repairs/{RepairId:int}"
+@rendermode InteractiveServer
+@inject RepairFacade RepairOperations
+
+<PageTitle>Repair details</PageTitle>
+<h1>Repair details</h1>
+
+@if (repair is null && errors.Count == 0)
+{
+    <p>Loading repair...</p>
+}
+else if (repair is not null)
+{
+    <dl class="details">
+        <dt>ID</dt><dd>@repair.Id.Value</dd>
+        <dt>Description</dt><dd>@repair.Description</dd>
+        <dt>Type</dt><dd>@repair.RepairTypeCode</dd>
+        <dt>Status</dt><dd>@repair.Status</dd>
+        <dt>Price</dt><dd>@repair.Price</dd>
+        <dt>Start date</dt><dd>@repair.StartDate</dd>
+    </dl>
+    <div class="actions">
+        <button @onclick="ApproveAsync" disabled="@busy">Approve</button>
+        <button @onclick="CancelAsync" disabled="@busy">Cancel</button>
+        <button @onclick="CompleteAsync" disabled="@busy">Complete</button>
+        <a class="button-link" href="/repairs/@RepairId/estimate">Create estimate</a>
+    </div>
+}
+
+<PageErrors Errors="errors" />
+
+@code {
+    [Parameter] public int RepairId { get; set; }
+    private RepairSummary? repair;
+    private bool busy;
+    private IReadOnlyList<ValidationError> errors = Array.Empty<ValidationError>();
+
+    protected override async Task OnParametersSetAsync()
+    {
+        try
+        {
+            var result = await RepairOperations.GetRepairAsync(new RepairId(RepairId));
+            repair = result.Value;
+            errors = result.Errors;
+        }
+        catch (Exception exception)
+        {
+            errors = UserFacingErrors.From(exception);
+        }
+    }
+
+    private Task ApproveAsync() => TransitionAsync(() => RepairOperations.ApproveRepairAsync(new RepairId(RepairId), DateOnly.FromDateTime(DateTime.Today)));
+    private Task CancelAsync() => TransitionAsync(() => RepairOperations.CancelRepairAsync(new RepairId(RepairId), DateOnly.FromDateTime(DateTime.Today)));
+    private Task CompleteAsync() => TransitionAsync(() => RepairOperations.CompleteRepairAsync(new RepairId(RepairId), DateOnly.FromDateTime(DateTime.Today)));
+
+    private async Task TransitionAsync(Func<Task<ApplicationResult<RepairSummary>>> operation)
+    {
+        busy = true;
+        try
+        {
+            var result = await operation();
+            repair = result.Value ?? repair;
+            errors = result.Errors;
+        }
+        catch (Exception exception) { errors = UserFacingErrors.From(exception); }
+        finally { busy = false; }
+    }
+}

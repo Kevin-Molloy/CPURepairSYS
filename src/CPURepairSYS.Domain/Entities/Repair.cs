@@ -27,7 +27,7 @@ public sealed class Repair
     private IRepairState state;
     private RepairStatus persistedStatus;
 
-    private Repair(RepairId id, string description, string repairTypeCode, CustomerId customerId, DateOnly startDate)
+    private Repair(RepairId id, string description, string repairTypeCode, CustomerId customerId, DateOnly? startDate)
     {
         Id = id;
         Description = ValidateDescription(description);
@@ -43,11 +43,11 @@ public sealed class Repair
     public string Description { get; }
     public string RepairTypeCode { get; }
     public CustomerId CustomerId { get; }
-    public DateOnly StartDate { get; }
+    public DateOnly? StartDate { get; }
     public DateOnly? ApprovedDate { get; private set; }
     public DateOnly? CompletedDate { get; private set; }
     public DateOnly? CancelledDate { get; private set; }
-    public Money Price { get; private set; }
+    public Money? Price { get; private set; }
     public RepairStatus Status => state.Status;
     private RepairStatus PersistedStatus
     {
@@ -68,9 +68,9 @@ public sealed class Repair
         string description,
         string repairTypeCode,
         CustomerId customerId,
-        DateOnly startDate,
+        DateOnly? startDate,
         RepairStatus status,
-        Money price,
+        Money? price,
         DateOnly? approvedDate,
         DateOnly? completedDate,
         DateOnly? cancelledDate,
@@ -78,7 +78,7 @@ public sealed class Repair
     {
         var repair = new Repair(id, description, repairTypeCode, customerId, startDate)
         {
-            Price = price,
+            Price = price ?? Money.Zero,
             ApprovedDate = approvedDate,
             CompletedDate = completedDate,
             CancelledDate = cancelledDate

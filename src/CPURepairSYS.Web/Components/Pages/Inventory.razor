@@ -1,0 +1,227 @@
+@page "/inventory"
+@rendermode InteractiveServer
+@inject InventoryFacade InventoryOperations
+@using System.ComponentModel.DataAnnotations
+
+<PageTitle>Inventory</PageTitle>
+<h1>Inventory</h1>
+
+<section class="form-card">
+    <h2>Find parts</h2>
+    <label>Description <input @bind="searchDescription" /></label>
+    <label><input type="checkbox" @bind="availableOnly" /> Available only</label>
+    <button @onclick="SearchAsync" disabled="@busy">Search</button>
+</section>
+
+<section class="form-card">
+    <h2>Add part</h2>
+    <EditForm Model="newPart" OnValidSubmit="AddAsync">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+        <div class="form-grid">
+            <label>Part ID <InputNumber class="generated-id" @bind-Value="newPartId" readonly /></label>
+            <label>Description <InputText @bind-Value="newPart.Description" /></label>
+            <label>Price <InputNumber @bind-Value="newPart.Price" /></label>
+            <label>Quantity <InputNumber @bind-Value="newPart.Quantity" /></label>
+            <label>Type code
+                <InputSelect @bind-Value="newPart.PartTypeCode">
+                    <option value="">Select a part type</option>
+                    <option value="PROC">PROC</option>
+                    <option value="GCARD">GCARD</option>
+                    <option value="FAN">FAN</option>
+                    <option value="CASE">CASE</option>
+                    <option value="BATT">BATT</option>
+                    <option value="POWSUP">POWSUP</option>
+                    <option value="MTHBRD">MTHBRD</option>
+                    <option value="COOL">COOL</option>
+                    <option value="RAM">RAM</option>
+                    <option value="STOR">STOR</option>
+                    <option value="WIFIADAP">WIFIADAP</option>
+                    <option value="SCRN">SCRN</option>
+                    <option value="MULT">MULT</option>
+                    <option value="OTH">OTH</option>
+                </InputSelect>
+            </label>
+        </div>
+        <button type="submit" disabled="@busy">Add part</button>
+    </EditForm>
+</section>
+
+<PageErrors Errors="errors" />
+@if (!string.IsNullOrWhiteSpace(successMessage))
+{
+    <p class="success">@successMessage</p>
+}
+
+@if (editingPart is not null)
+{
+    <section class="form-card">
+        <h2>Update part @editingPart.Id.Value</h2>
+        <EditForm Model="editingPart" OnValidSubmit="UpdateAsync">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+            <div class="form-grid">
+                <label>Description <InputText @bind-Value="editingPart.Description" /></label>
+                <label>Price <InputNumber @bind-Value="editingPart.Price" /></label>
+                <label>Quantity <InputNumber @bind-Value="editingPart.Quantity" /></label>
+                <label>Type code <InputText @bind-Value="editingPart.PartTypeCode" /></label>
+            </div>
+            <button type="submit" disabled="@busy">Save changes</button>
+            <button type="button" @onclick="CancelEdit" disabled="@busy">Cancel</button>
+        </EditForm>
+    </section>
+}
+
+@if (parts is not null)
+{
+    <table>
+        <thead><tr><th>ID</th><th>Description</th><th>Price</th><th>Quantity</th><th>Status</th><th>Action</th></tr></thead>
+        <tbody>
+        @foreach (var part in parts)
+        {
+            <tr>
+                <td>@part.Id.Value</td><td>@part.Description</td><td>@part.Price</td><td>@part.Quantity</td><td>@part.Status</td>
+                <td>
+                    <button @onclick="() => BeginEdit(part)" disabled="@busy">Edit</button>
+                    @if (part.Status != PartStatus.Discontinued)
+                    {
+                        <button @onclick="() => DiscontinueAsync(part.Id)" disabled="@busy">Discontinue</button>
+                    }
+                    else
+                    {
+                        <InputNumber @bind-Value="restoreQuantity" />
+                        <button @onclick="() => ReinstateAsync(part.Id)" disabled="@busy">Restore</button>
+                    }
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+
+@code {
+    private string? searchDescription;
+    private bool availableOnly;
+    private int newPartId = 1;
+    private bool busy;
+    private IReadOnlyList<PartSummary>? parts;
+    private IReadOnlyList<ValidationError> errors = Array.Empty<ValidationError>();
+    private PartForm newPart = new();
+    private PartEditForm? editingPart;
+    private string? successMessage;
+    private int restoreQuantity = 1;
+
+    protected override async Task OnInitializedAsync()
+    {
+        newPartId = (await InventoryOperations.GetNextPartIdAsync()).Value;
+    }
+
+    private async Task SearchAsync() => await RunAsync(() => InventoryOperations.SearchPartsAsync(searchDescription, availableOnly));
+
+    private async Task AddAsync()
+    {
+        busy = true;
+        errors = Array.Empty<ValidationError>();
+        successMessage = null;
+        try
+        {
+            var result = await InventoryOperations.AddPartAsync(new AddPartRequest(
+                new PartId(newPartId), newPart.Description, new Money(newPart.Price), newPart.Quantity, newPart.PartTypeCode));
+            errors = result.Errors;
+            if (result.Succeeded)
+            {
+                newPart = new PartForm();
+                newPartId = (await InventoryOperations.GetNextPartIdAsync()).Value;
+                successMessage = "Part added successfully.";
+            }
+        }
+        catch (Exception exception)
+        {
+            errors = UserFacingErrors.From(exception);
+        }
+        finally { busy = false; }
+    }
+
+    private async Task DiscontinueAsync(PartId id)
+    {
+        var result = await InventoryOperations.DiscontinuePartAsync(id);
+        errors = result.Errors;
+        if (result.Succeeded && result.Value is PartSummary updated && parts is not null)
+        {
+            parts = parts.Select(part => part.Id == updated.Id ? updated : part).ToList();
+            successMessage = "Part discontinued successfully.";
+        }
+    }
+
+    private async Task ReinstateAsync(PartId id)
+    {
+        var result = await InventoryOperations.ReinstatePartAsync(id, restoreQuantity);
+        errors = result.Errors;
+        if (result.Succeeded && result.Value is PartSummary updated && parts is not null)
+        {
+            parts = parts.Select(part => part.Id == updated.Id ? updated : part).ToList();
+            successMessage = "Part reinstated successfully.";
+        }
+    }
+
+    private void BeginEdit(PartSummary part) =>
+        editingPart = new PartEditForm
+        {
+            Id = part.Id,
+            Description = part.Description,
+            Price = part.Price.Amount,
+            Quantity = part.Quantity,
+            PartTypeCode = part.PartTypeCode
+        };
+
+    private async Task UpdateAsync()
+    {
+        if (editingPart is null) return;
+        var result = await InventoryOperations.UpdatePartAsync(editingPart.Id,
+            new UpdatePartRequest(editingPart.Description, new Money(editingPart.Price),
+                editingPart.Quantity, editingPart.PartTypeCode));
+        errors = result.Errors;
+        if (result.Succeeded)
+        {
+            if (result.Value is PartSummary updated && parts is not null)
+            {
+                parts = parts.Select(part => part.Id == updated.Id ? updated : part).ToList();
+            }
+            successMessage = "Part updated successfully.";
+            editingPart = null;
+        }
+    }
+
+    private void CancelEdit() => editingPart = null;
+
+    private async Task RunAsync<T>(Func<Task<ApplicationResult<T>>> operation)
+    {
+        busy = true;
+        errors = Array.Empty<ValidationError>();
+        try
+        {
+            var result = await operation();
+            errors = result.Errors;
+            if (result.Succeeded && result.Value is IReadOnlyList<PartSummary> found) parts = found;
+        }
+        catch (Exception exception) { errors = UserFacingErrors.From(exception); }
+        finally { busy = false; }
+    }
+
+    private class PartForm
+    {
+        [Required, StringLength(50, ErrorMessage = "Description must be 50 characters or fewer.")]
+        public string Description { get; set; } = string.Empty;
+        [Range(0, 99999.99, ErrorMessage = "Price must be zero or greater.")]
+        public decimal Price { get; set; }
+        [Range(0, 999999, ErrorMessage = "Quantity must be zero or greater.")]
+        public int Quantity { get; set; }
+        [Required, StringLength(8, ErrorMessage = "Part type is required.")]
+        public string PartTypeCode { get; set; } = string.Empty;
+    }
+
+    private sealed class PartEditForm : PartForm
+    {
+        public PartId Id { get; set; }
+    }
+}

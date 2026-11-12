@@ -16,10 +16,10 @@ public sealed class PersistenceModelTests
         using var context = new RepairDbContext(options);
         var model = context.Model;
 
-        Assert.Equal("Customers", model.FindEntityType(typeof(Customer))!.GetTableName());
-        Assert.Equal("Parts", model.FindEntityType(typeof(Part))!.GetTableName());
-        Assert.Equal("Repairs", model.FindEntityType(typeof(Repair))!.GetTableName());
-        Assert.Equal("RepairItems", model.FindEntityType(typeof(RepairItem))!.GetTableName());
+        Assert.Equal("CUSTOMERS", model.FindEntityType(typeof(Customer))!.GetTableName());
+        Assert.Equal("PARTS", model.FindEntityType(typeof(Part))!.GetTableName());
+        Assert.Equal("REPAIRS", model.FindEntityType(typeof(Repair))!.GetTableName());
+        Assert.Equal("REPAIRITEMS", model.FindEntityType(typeof(RepairItem))!.GetTableName());
         Assert.Equal(2, model.FindEntityType(typeof(RepairItem))!.FindPrimaryKey()!.Properties.Count);
         Assert.Equal("SEQ_REPAIRS.NEXTVAL", model.FindEntityType(typeof(Repair))!
             .FindProperty(nameof(Repair.Id))!.GetDefaultValueSql());

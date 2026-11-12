@@ -1,0 +1,92 @@
+@page "/reports"
+@rendermode InteractiveServer
+@inject ReportingFacade Reporting
+
+<PageTitle>Reports</PageTitle>
+<h1>Reports</h1>
+
+<section class="form-card">
+    <h2>Repair history</h2>
+    <label>Year <InputNumber @bind-Value="year" /></label>
+    <label>Status
+        <select @bind="status">
+            <option value="">All statuses</option>
+            @foreach (var item in Enum.GetValues<RepairStatus>())
+            {
+                <option value="@item">@item</option>
+            }
+        </select>
+    </label>
+    <button @onclick="LoadRepairHistoryAsync" disabled="@busy">Load repairs</button>
+    <button @onclick="LoadRevenueAsync" disabled="@busy">Load revenue</button>
+    <button @onclick="LoadPartsAsync" disabled="@busy">Load parts</button>
+</section>
+
+<PageErrors Errors="errors" />
+
+@if (repairRows is not null)
+{
+    <h2>Repair history</h2>
+    <table><thead><tr><th>ID</th><th>Description</th><th>Status</th><th>Year</th><th>Value</th></tr></thead>
+    <tbody>@foreach (var row in repairRows) { <tr><td>@row.Repair.Id.Value</td><td>@row.Repair.Description</td><td>@row.Repair.Status</td><td>@row.Year</td><td>@row.Repair.Price</td></tr> }</tbody></table>
+}
+@if (partRows is not null)
+{
+    <h2>Parts report</h2>
+    <table><thead><tr><th>ID</th><th>Description</th><th>Stock</th><th>Used</th></tr></thead>
+    <tbody>@foreach (var row in partRows) { <tr><td>@row.Part.Id.Value</td><td>@row.Part.Description</td><td>@row.Part.Quantity</td><td>@row.QuantityUsed</td></tr> }</tbody></table>
+}
+@if (revenueRows is not null)
+{
+    <h2>Revenue report</h2>
+    <p>Total rows: @revenueRows.Count</p>
+    <table><thead><tr><th>ID</th><th>Description</th><th>Completed value</th></tr></thead>
+    <tbody>@foreach (var row in revenueRows) { <tr><td>@row.Repair.Id.Value</td><td>@row.Repair.Description</td><td>@row.Repair.Price</td></tr> }</tbody></table>
+}
+
+@code {
+    private int year = DateTime.Today.Year;
+    private string status = string.Empty;
+    private bool busy;
+    private IReadOnlyList<RepairReportRow>? repairRows;
+    private IReadOnlyList<PartReportRow>? partRows;
+    private IReadOnlyList<RevenueReportRow>? revenueRows;
+    private IReadOnlyList<ValidationError> errors = Array.Empty<ValidationError>();
+
+    private async Task LoadRepairHistoryAsync()
+    {
+        RepairStatus? parsedStatus = Enum.TryParse<RepairStatus>(status, out var value) ? value : null;
+        var result = await RunAsync(() => Reporting.GetRepairHistoryAsync(year, parsedStatus));
+        if (result is not null) repairRows = result;
+    }
+
+    private async Task LoadPartsAsync()
+    {
+        var result = await RunAsync(() => Reporting.GetPartsReportAsync(year));
+        if (result is not null) partRows = result;
+    }
+
+    private async Task LoadRevenueAsync()
+    {
+        var result = await RunAsync(() => Reporting.GetRevenueAsync(year, false));
+        if (result is not null) revenueRows = result;
+    }
+
+    private async Task<IReadOnlyList<T>?> RunAsync<T>(Func<Task<ApplicationResult<IReadOnlyList<T>>>> operation)
+    {
+        busy = true;
+        errors = Array.Empty<ValidationError>();
+        try
+        {
+            var result = await operation();
+            errors = result.Errors;
+            return result.Succeeded ? result.Value : null;
+        }
+        catch (Exception exception)
+        {
+            errors = UserFacingErrors.From(exception);
+            return null;
+        }
+        finally { busy = false; }
+    }
+}

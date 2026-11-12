@@ -1,0 +1,13 @@
+@if (Errors.Count > 0)
+{
+    <div class="errors" role="alert">
+        @foreach (var error in Errors)
+        {
+            <p><strong>@error.Field:</strong> @error.Message</p>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public IReadOnlyList<ValidationError> Errors { get; set; } = Array.Empty<ValidationError>();
+}

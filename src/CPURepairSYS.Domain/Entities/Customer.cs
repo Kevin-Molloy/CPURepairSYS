@@ -27,7 +27,15 @@ public sealed class Customer
     public string Email { get; private set; }
 
     public static Customer Create(CustomerId id, string firstName, string surname, PhoneNumber phone, string email) =>
-        new(id, firstName.ToUpperInvariant(), surname.ToUpperInvariant(), phone, email);
+        new(id, firstName, surname, phone, email);
+
+    public void UpdateDetails(string firstName, string surname, PhoneNumber phone, string email)
+    {
+        FirstName = ValidateText(firstName, nameof(firstName), 15);
+        Surname = ValidateText(surname, nameof(surname), 15);
+        Phone = phone;
+        Email = ValidateText(email, nameof(email), 25);
+    }
 
     internal static Customer Rehydrate(CustomerId id, string firstName, string surname, PhoneNumber phone, string email) =>
         new(id, firstName, surname, phone, email);

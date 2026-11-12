@@ -1,0 +1,196 @@
+@page "/customers"
+@rendermode InteractiveServer
+@inject RepairFacade Repairs
+@using System.ComponentModel.DataAnnotations
+
+<PageTitle>Customers</PageTitle>
+<h1>Customers</h1>
+
+<section class="form-card">
+    <h2>Find customer</h2>
+    <div class="form-grid">
+        <label>Phone <input @bind="phone" /></label>
+        <label>First name <input @bind="firstName" /></label>
+    </div>
+    <button @onclick="SearchAsync" disabled="@busy">Search</button>
+</section>
+
+<section class="form-card">
+    <h2>Register customer</h2>
+    <EditForm Model="registration" OnValidSubmit="RegisterAsync">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+        <div class="form-grid">
+            <label>Customer ID <InputNumber class="generated-id" @bind-Value="registrationId" readonly /></label>
+            <label>First name <InputText @bind-Value="registration.FirstName" /></label>
+            <label>Surname <InputText @bind-Value="registration.Surname" /></label>
+            <label>Phone <InputText @bind-Value="registration.Phone" /></label>
+            <label>Email <InputText @bind-Value="registration.Email" /></label>
+        </div>
+        <button type="submit" disabled="@busy">Register</button>
+    </EditForm>
+</section>
+
+<PageErrors Errors="errors" />
+@if (!string.IsNullOrWhiteSpace(successMessage))
+{
+    <p class="success">@successMessage</p>
+}
+
+@if (editingCustomer is not null)
+{
+    <section class="form-card">
+        <h2>Update customer @editingCustomer.Id.Value</h2>
+        <EditForm Model="editingCustomer" OnValidSubmit="UpdateAsync">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+            <div class="form-grid">
+                <label>First name <InputText @bind-Value="editingCustomer.FirstName" /></label>
+                <label>Surname <InputText @bind-Value="editingCustomer.Surname" /></label>
+                <label>Phone <InputText @bind-Value="editingCustomer.Phone" /></label>
+                <label>Email <InputText @bind-Value="editingCustomer.Email" /></label>
+            </div>
+            <button type="submit" disabled="@busy">Save changes</button>
+            <button type="button" @onclick="CancelEdit" disabled="@busy">Cancel</button>
+        </EditForm>
+    </section>
+}
+
+@if (customers is not null)
+{
+    <h2>Results</h2>
+    <table>
+        <thead><tr><th>ID</th><th>Name</th><th>Phone</th><th>Email</th><th>Action</th></tr></thead>
+        <tbody>
+        @foreach (var customer in customers)
+        {
+            <tr>
+                <td>@customer.Id.Value</td><td>@customer.FirstName @customer.Surname</td><td>@customer.Phone</td><td>@customer.Email</td>
+                <td><button @onclick="() => BeginEdit(customer)" disabled="@busy">Edit</button></td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+
+@code {
+    private string? phone;
+    private string? firstName;
+    private int registrationId = 1;
+    private bool busy;
+    private IReadOnlyList<CustomerSummary>? customers;
+    private IReadOnlyList<ValidationError> errors = Array.Empty<ValidationError>();
+    private CustomerForm registration = new();
+    private CustomerEditForm? editingCustomer;
+    private string? successMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        registrationId = (await Repairs.GetNextCustomerIdAsync()).Value;
+    }
+
+    private async Task SearchAsync()
+    {
+        await RunAsync(async () => await Repairs.SearchCustomersAsync(phone, firstName));
+    }
+
+    private async Task RegisterAsync()
+    {
+        busy = true;
+        errors = Array.Empty<ValidationError>();
+        successMessage = null;
+        try
+        {
+            var request = new RegisterCustomerRequest(registration.FirstName, registration.Surname,
+                new PhoneNumber(registration.Phone), registration.Email, new CustomerId(registrationId));
+            var result = await Repairs.RegisterCustomerAsync(request);
+            errors = result.Errors;
+            if (result.Succeeded)
+            {
+                registration = new CustomerForm();
+                registrationId = (await Repairs.GetNextCustomerIdAsync()).Value;
+                successMessage = "Customer registered successfully.";
+            }
+        }
+        catch (Exception exception)
+        {
+            errors = UserFacingErrors.From(exception);
+        }
+        finally { busy = false; }
+    }
+
+    private void BeginEdit(CustomerSummary customer) =>
+        editingCustomer = new CustomerEditForm
+        {
+            Id = customer.Id,
+            FirstName = customer.FirstName,
+            Surname = customer.Surname,
+            Phone = customer.Phone.Value,
+            Email = customer.Email
+        };
+
+    private async Task UpdateAsync()
+    {
+        if (editingCustomer is null) return;
+        var result = await Repairs.UpdateCustomerAsync(editingCustomer.Id,
+            new UpdateCustomerRequest(editingCustomer.FirstName, editingCustomer.Surname,
+                new PhoneNumber(editingCustomer.Phone), editingCustomer.Email));
+        errors = result.Errors;
+        if (result.Succeeded)
+        {
+            if (result.Value is CustomerSummary updated && customers is not null)
+            {
+                customers = customers.Select(customer => customer.Id == updated.Id ? updated : customer).ToList();
+            }
+            successMessage = "Customer updated successfully.";
+            editingCustomer = null;
+        }
+    }
+
+    private void CancelEdit() => editingCustomer = null;
+
+    private async Task RunAsync<T>(Func<Task<ApplicationResult<T>>> operation)
+    {
+        busy = true;
+        errors = Array.Empty<ValidationError>();
+        try
+        {
+            var result = await operation();
+            errors = result.Errors;
+            if (result.Succeeded && result.Value is IReadOnlyList<CustomerSummary> found)
+            {
+                customers = found;
+            }
+        }
+        catch (Exception exception)
+        {
+            errors = UserFacingErrors.From(exception);
+        }
+        finally { busy = false; }
+    }
+
+    private sealed class CustomerForm
+    {
+        [Required, StringLength(15, ErrorMessage = "First name must be 15 characters or fewer.")]
+        public string FirstName { get; set; } = string.Empty;
+        [Required, StringLength(15, ErrorMessage = "Surname must be 15 characters or fewer.")]
+        public string Surname { get; set; } = string.Empty;
+        [Required, RegularExpression(@"^\d{1,10}$", ErrorMessage = "Phone must contain 1 to 10 digits.")]
+        public string Phone { get; set; } = string.Empty;
+        [Required, EmailAddress, StringLength(25, ErrorMessage = "Email must be 25 characters or fewer.")]
+        public string Email { get; set; } = string.Empty;
+    }
+
+    private sealed class CustomerEditForm
+    {
+        public CustomerId Id { get; set; }
+        [Required, StringLength(15, ErrorMessage = "First name must be 15 characters or fewer.")]
+        public string FirstName { get; set; } = string.Empty;
+        [Required, StringLength(15, ErrorMessage = "Surname must be 15 characters or fewer.")]
+        public string Surname { get; set; } = string.Empty;
+        [Required, RegularExpression(@"^\d{1,10}$", ErrorMessage = "Phone must contain 1 to 10 digits.")]
+        public string Phone { get; set; } = string.Empty;
+        [Required, EmailAddress, StringLength(25, ErrorMessage = "Email must be 25 characters or fewer.")]
+        public string Email { get; set; } = string.Empty;
+    }
+}

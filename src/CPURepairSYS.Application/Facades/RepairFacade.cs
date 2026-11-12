@@ -13,9 +13,16 @@ public sealed class RepairFacade(
     IRepairRepository repairs,
     IPartRepository parts,
     IRepairDataAdapter transaction,
+    IUnitOfWork unitOfWork,
     IRepairFactory factory,
     IApplicationAuthorizer authorizer)
 {
+    public Task<CustomerId> GetNextCustomerIdAsync(CancellationToken cancellationToken = default) =>
+        customers.GetNextIdAsync(cancellationToken);
+
+    public Task<RepairId> GetNextRepairIdAsync(CancellationToken cancellationToken = default) =>
+        repairs.GetNextIdAsync(cancellationToken);
+
     public async Task<ApplicationResult<IReadOnlyList<CustomerSummary>>> SearchCustomersAsync(string? phone, string? firstName, CancellationToken cancellationToken = default)
     {
         await authorizer.AuthorizeAsync(ApplicationOperation.Search, cancellationToken);
@@ -26,10 +33,46 @@ public sealed class RepairFacade(
     public async Task<ApplicationResult<CustomerSummary>> RegisterCustomerAsync(RegisterCustomerRequest request, CancellationToken cancellationToken = default)
     {
         await authorizer.AuthorizeAsync(ApplicationOperation.Create, cancellationToken);
+        if (await customers.PhoneExistsAsync(request.Phone, cancellationToken: cancellationToken))
+            return ApplicationResult<CustomerSummary>.Failure(new ValidationError(nameof(request.Phone), "Phone number is already registered."));
+        if (await customers.EmailExistsAsync(request.Email, cancellationToken: cancellationToken))
+            return ApplicationResult<CustomerSummary>.Failure(new ValidationError(nameof(request.Email), "Email is already registered."));
         try
         {
-            var customer = Customer.Create(request.Id, request.FirstName, request.Surname, request.Phone, request.Email);
+            var customer = Customer.Create(
+                await customers.GetNextIdAsync(cancellationToken),
+                request.FirstName,
+                request.Surname,
+                request.Phone,
+                request.Email);
             await customers.AddAsync(customer, cancellationToken);
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+            return ApplicationResult<CustomerSummary>.Success(ToSummary(customer));
+        }
+        catch (ArgumentException exception)
+        {
+            return ApplicationResult<CustomerSummary>.Failure(new ValidationError(nameof(request), exception.Message));
+        }
+    }
+
+    public async Task<ApplicationResult<CustomerSummary>> UpdateCustomerAsync(CustomerId id, UpdateCustomerRequest request, CancellationToken cancellationToken = default)
+    {
+        await authorizer.AuthorizeAsync(ApplicationOperation.Update, cancellationToken);
+        var customer = await customers.GetByIdAsync(id, cancellationToken);
+        if (customer is null)
+        {
+            return ApplicationResult<CustomerSummary>.Failure(new ValidationError(nameof(id), "Customer does not exist."));
+        }
+
+        try
+        {
+            if (await customers.PhoneExistsAsync(request.Phone, id, cancellationToken))
+                return ApplicationResult<CustomerSummary>.Failure(new ValidationError(nameof(request.Phone), "Phone number is already registered."));
+            if (await customers.EmailExistsAsync(request.Email, id, cancellationToken))
+                return ApplicationResult<CustomerSummary>.Failure(new ValidationError(nameof(request.Email), "Email is already registered."));
+            customer.UpdateDetails(request.FirstName, request.Surname, request.Phone, request.Email);
+            customers.Update(customer);
+            await unitOfWork.SaveChangesAsync(cancellationToken);
             return ApplicationResult<CustomerSummary>.Success(ToSummary(customer));
         }
         catch (ArgumentException exception)
@@ -48,8 +91,14 @@ public sealed class RepairFacade(
 
         try
         {
-            var repair = factory.Create(request.Id, request.Description, request.RepairTypeCode, request.CustomerId, request.StartDate);
+            var repair = factory.Create(
+                await repairs.GetNextIdAsync(cancellationToken),
+                request.Description,
+                request.RepairTypeCode,
+                request.CustomerId,
+                request.StartDate);
             await repairs.AddAsync(repair, cancellationToken);
+            await unitOfWork.SaveChangesAsync(cancellationToken);
             return ApplicationResult<RepairSummary>.Success(ToSummary(repair));
         }
         catch (ArgumentException exception)
@@ -160,5 +209,5 @@ public sealed class RepairFacade(
     }
 
     private static CustomerSummary ToSummary(Customer customer) => new(customer.Id, customer.FirstName, customer.Surname, customer.Phone, customer.Email);
-    private static RepairSummary ToSummary(Repair repair) => new(repair.Id, repair.Description, repair.RepairTypeCode, repair.CustomerId, repair.Status, repair.Price, repair.StartDate);
+    private static RepairSummary ToSummary(Repair repair) => new(repair.Id, repair.Description, repair.RepairTypeCode, repair.CustomerId, repair.Status, repair.Price ?? Money.Zero, repair.StartDate);
 }

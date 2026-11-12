@@ -27,3 +27,121 @@ h1:focus {
 .darker-border-checkbox.form-check-input {
     border-color: #929292;
 }
+
+body {
+    font-family: system-ui, sans-serif;
+    margin: 0;
+    color: #1f2937;
+}
+
+.navigation {
+    display: flex;
+    gap: 1rem;
+    padding: 1rem 2rem;
+    background: #172554;
+}
+
+.navigation a,
+.button-link {
+    color: white;
+    text-decoration: none;
+}
+
+main {
+    padding: 2rem;
+}
+
+.form-card {
+    border: 1px solid #d1d5db;
+    border-radius: .5rem;
+    margin: 1rem 0;
+    padding: 1rem;
+}
+
+.form-grid {
+    display: grid;
+    gap: .75rem;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    margin-bottom: 1rem;
+}
+
+label {
+    display: grid;
+    gap: .25rem;
+}
+
+input,
+select,
+button {
+    font: inherit;
+    padding: .4rem;
+}
+
+.generated-id {
+    background: #e5e7eb;
+    color: #4b5563;
+    cursor: not-allowed;
+}
+
+button,
+.button-link {
+    background: #1d4ed8;
+    border: 0;
+    border-radius: .25rem;
+    color: white;
+    cursor: pointer;
+    display: inline-block;
+    margin: .25rem;
+    padding: .5rem .75rem;
+}
+
+button:disabled {
+    cursor: not-allowed;
+    opacity: .6;
+}
+
+table {
+    border-collapse: collapse;
+    margin: 1rem 0;
+    width: 100%;
+}
+
+th,
+td {
+    border-bottom: 1px solid #d1d5db;
+    padding: .6rem;
+    text-align: left;
+}
+
+.errors {
+    background: #fee2e2;
+    border: 1px solid #dc2626;
+    color: #991b1b;
+    margin: 1rem 0;
+    padding: .75rem;
+}
+
+.details {
+    display: grid;
+    grid-template-columns: 10rem 1fr;
+    max-width: 40rem;
+}
+
+.details dt,
+.details dd {
+    border-bottom: 1px solid #e5e7eb;
+    margin: 0;
+    padding: .5rem;
+}
+
+.dashboard-links {
+    display: grid;
+    gap: 1rem;
+    max-width: 32rem;
+}
+
+.dashboard-links a {
+    background: #eff6ff;
+    border-radius: .4rem;
+    padding: 1rem;
+}
