@@ -12,21 +12,21 @@ public interface IRepairReportStrategy
 public sealed class RepairsByYearStrategy : IRepairReportStrategy
 {
     public IEnumerable<RepairReportRow> Apply(IEnumerable<Repair> repairs, int year, RepairStatus? status) =>
-        repairs.Where(repair => repair.StartDate?.Year == year && (!status.HasValue || repair.Status == status.Value))
+        repairs.Where(repair => repair.StartDate?.Year == year && (!status.HasValue || repair.EffectiveStatus == status.Value))
             .OrderBy(repair => repair.StartDate)
             .Select(repair => new RepairReportRow(ToSummary(repair), year));
 
     private static RepairSummary ToSummary(Repair repair) =>
-        new(repair.Id, repair.Description, repair.RepairTypeCode, repair.CustomerId, repair.Status, repair.Price ?? Money.Zero, repair.StartDate);
+        new(repair.Id, repair.Description, repair.RepairTypeCode, repair.CustomerId, repair.EffectiveStatus, repair.Price ?? Money.Zero, repair.StartDate);
 }
 
 public sealed class RepairsByStatusStrategy : IRepairReportStrategy
 {
     public IEnumerable<RepairReportRow> Apply(IEnumerable<Repair> repairs, int year, RepairStatus? status) =>
-        repairs.Where(repair => repair.StartDate?.Year == year && status.HasValue && repair.Status == status.Value)
+        repairs.Where(repair => repair.StartDate?.Year == year && status.HasValue && repair.EffectiveStatus == status.Value)
             .OrderBy(repair => repair.Description)
             .Select(repair => new RepairReportRow(
-                new RepairSummary(repair.Id, repair.Description, repair.RepairTypeCode, repair.CustomerId, repair.Status, repair.Price ?? Money.Zero, repair.StartDate),
+                new RepairSummary(repair.Id, repair.Description, repair.RepairTypeCode, repair.CustomerId, repair.EffectiveStatus, repair.Price ?? Money.Zero, repair.StartDate),
                 year));
 }
 

@@ -53,6 +53,13 @@
     private IReadOnlyList<RevenueReportRow>? revenueRows;
     private IReadOnlyList<ValidationError> errors = Array.Empty<ValidationError>();
 
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadRepairHistoryAsync();
+        await LoadRevenueAsync();
+        await LoadPartsAsync();
+    }
+
     private async Task LoadRepairHistoryAsync()
     {
         RepairStatus? parsedStatus = Enum.TryParse<RepairStatus>(status, out var value) ? value : null;

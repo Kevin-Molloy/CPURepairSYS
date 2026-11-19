@@ -20,20 +20,37 @@ else if (repair is not null)
         <dt>Start date</dt><dd>@repair.StartDate</dd>
     </dl>
     <div class="actions">
-        <button @onclick="ApproveAsync" disabled="@busy">Approve</button>
-        <button @onclick="CancelAsync" disabled="@busy">Cancel</button>
-        <button @onclick="CompleteAsync" disabled="@busy">Complete</button>
-        <a class="button-link" href="/repairs/@RepairId/estimate">Create estimate</a>
+        <button @onclick="ApproveAsync" disabled="@(!CanApprove)">Approve</button>
+        <button @onclick="CancelAsync" disabled="@(!CanCancel)">Cancel repair</button>
+        <button @onclick="CompleteAsync" disabled="@(!CanComplete)">Complete</button>
+        @if (repair.Status == RepairStatus.Logged)
+        {
+            <a class="button-link" href="/repairs/@RepairId/estimate">Create estimate</a>
+        }
     </div>
+    @if (repair.Price.Amount <= 0)
+    {
+        <p>An estimate is required before this repair can be approved or completed.</p>
+    }
 }
 
 <PageErrors Errors="errors" />
+@if (!string.IsNullOrWhiteSpace(successMessage))
+{
+    <p class="success">@successMessage</p>
+}
 
 @code {
     [Parameter] public int RepairId { get; set; }
     private RepairSummary? repair;
     private bool busy;
     private IReadOnlyList<ValidationError> errors = Array.Empty<ValidationError>();
+    private string? successMessage;
+
+    private bool HasEstimate => repair is not null && repair.Price.Amount > 0;
+    private bool CanApprove => !busy && repair?.Status == RepairStatus.Estimated && HasEstimate;
+    private bool CanComplete => !busy && repair?.Status == RepairStatus.Approved && HasEstimate;
+    private bool CanCancel => !busy && repair?.Status is RepairStatus.Logged or RepairStatus.Estimated or RepairStatus.Approved;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -49,11 +66,19 @@ else if (repair is not null)
         }
     }
 
-    private Task ApproveAsync() => TransitionAsync(() => RepairOperations.ApproveRepairAsync(new RepairId(RepairId), DateOnly.FromDateTime(DateTime.Today)));
-    private Task CancelAsync() => TransitionAsync(() => RepairOperations.CancelRepairAsync(new RepairId(RepairId), DateOnly.FromDateTime(DateTime.Today)));
-    private Task CompleteAsync() => TransitionAsync(() => RepairOperations.CompleteRepairAsync(new RepairId(RepairId), DateOnly.FromDateTime(DateTime.Today)));
+    private Task ApproveAsync() => TransitionAsync(
+        () => RepairOperations.ApproveRepairAsync(new RepairId(RepairId), DateOnly.FromDateTime(DateTime.Today)),
+        "Repair approved successfully.");
 
-    private async Task TransitionAsync(Func<Task<ApplicationResult<RepairSummary>>> operation)
+    private Task CancelAsync() => TransitionAsync(
+        () => RepairOperations.CancelRepairAsync(new RepairId(RepairId), DateOnly.FromDateTime(DateTime.Today)),
+        "Repair cancelled successfully.");
+
+    private Task CompleteAsync() => TransitionAsync(
+        () => RepairOperations.CompleteRepairAsync(new RepairId(RepairId), DateOnly.FromDateTime(DateTime.Today)),
+        "Repair completed successfully.");
+
+    private async Task TransitionAsync(Func<Task<ApplicationResult<RepairSummary>>> operation, string successText)
     {
         busy = true;
         try
@@ -61,6 +86,10 @@ else if (repair is not null)
             var result = await operation();
             repair = result.Value ?? repair;
             errors = result.Errors;
+            if (result.Succeeded)
+            {
+                successMessage = successText;
+            }
         }
         catch (Exception exception) { errors = UserFacingErrors.From(exception); }
         finally { busy = false; }

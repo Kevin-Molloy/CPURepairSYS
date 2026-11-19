@@ -70,15 +70,12 @@ public sealed class Part
     {
         if (Status == PartStatus.Discontinued) throw new InvalidDomainOperationException("Part is already discontinued.");
         Status = PartStatus.Discontinued;
-        Quantity = 0;
     }
 
-    public void Reinstate(int quantity)
+    public void Reinstate()
     {
         if (Status != PartStatus.Discontinued) throw new InvalidDomainOperationException("Part is not discontinued.");
-        Quantity = ValidateQuantity(quantity);
-        if (quantity == 0) throw new ArgumentOutOfRangeException(nameof(quantity), "A reinstated part must have stock.");
-        Status = PartStatus.Available;
+        Status = Quantity == 0 ? PartStatus.OutOfStock : PartStatus.Available;
     }
 
     public void UpdateDetails(string description, Money price, int quantity, string partTypeCode)
