@@ -114,9 +114,10 @@
     private RepairForm newRepair = new() { StartDate = DateOnly.FromDateTime(DateTime.Today) };
     private string? successMessage;
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnParametersSetAsync()
     {
         newRepairId = (await RepairOperations.GetNextRepairIdAsync()).Value;
+        await SearchAsync();
     }
 
     private async Task SearchAsync()

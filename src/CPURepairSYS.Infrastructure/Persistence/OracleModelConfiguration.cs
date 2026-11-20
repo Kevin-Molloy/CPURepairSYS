@@ -102,7 +102,7 @@ internal sealed class RepairConfiguration : IEntityTypeConfiguration<Repair>
         builder.Property(x => x.Id).HasColumnName("REPAIRID").ValueGeneratedOnAdd().HasDefaultValueSql("SEQ_REPAIRS.NEXTVAL")
             .HasConversion(x => x.Value, x => new RepairId(x));
         builder.Property(x => x.Description).HasColumnName("DESCRIPTION").HasMaxLength(200).IsRequired();
-        builder.Property<RepairStatus>("PersistedStatus").HasColumnName("STATUS").HasMaxLength(2)
+        builder.Property(x => x.PersistedStatus).HasColumnName("STATUS").HasMaxLength(2)
             .HasConversion(new ValueConverter<RepairStatus, string>(x => PersistenceConversions.RepairStatusToCode(x), x => PersistenceConversions.CodeToRepairStatus(x)));
         builder.Property(x => x.Price).HasColumnName("PRICE").HasPrecision(6, 2)
             .HasConversion(new ValueConverter<Money?, decimal?>(

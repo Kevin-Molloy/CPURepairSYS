@@ -36,9 +36,9 @@ public sealed class ReportingFacade(
         await authorizer.AuthorizeAsync(ApplicationOperation.Report, cancellationToken);
         if (year is < 1 or > 9999) return ApplicationResult<IReadOnlyList<RevenueReportRow>>.Failure(new ValidationError(nameof(year), "Year is invalid."));
         var repairs = await source.GetRepairsAsync(cancellationToken);
-        var result = repairs.Where(repair => repair.CompletedDate?.Year == year && (includeCancelled || repair.Status != RepairStatus.Cancelled))
+        var result = repairs.Where(repair => repair.CompletedDate?.Year == year && (includeCancelled || repair.EffectiveStatus != RepairStatus.Cancelled))
             .OrderBy(repair => repair.CompletedDate)
-            .Select(repair => new RevenueReportRow(new RepairSummary(repair.Id, repair.Description, repair.RepairTypeCode, repair.CustomerId, repair.Status, repair.Price ?? Money.Zero, repair.StartDate)))
+            .Select(repair => new RevenueReportRow(new RepairSummary(repair.Id, repair.Description, repair.RepairTypeCode, repair.CustomerId, repair.EffectiveStatus, repair.Price ?? Money.Zero, repair.StartDate)))
             .ToList();
         return ApplicationResult<IReadOnlyList<RevenueReportRow>>.Success(result);
     }

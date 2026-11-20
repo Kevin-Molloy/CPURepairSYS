@@ -214,5 +214,5 @@ public sealed class RepairFacade(
     }
 
     private static CustomerSummary ToSummary(Customer customer) => new(customer.Id, customer.FirstName, customer.Surname, customer.Phone, customer.Email);
-    private static RepairSummary ToSummary(Repair repair) => new(repair.Id, repair.Description, repair.RepairTypeCode, repair.CustomerId, repair.Status, repair.Price ?? Money.Zero, repair.StartDate);
+    private static RepairSummary ToSummary(Repair repair) => new(repair.Id, repair.Description, repair.RepairTypeCode, repair.CustomerId, repair.EffectiveStatus, repair.Price ?? Money.Zero, repair.StartDate);
 }

@@ -92,9 +92,10 @@
     private CustomerEditForm? editingCustomer;
     private string? successMessage;
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnParametersSetAsync()
     {
         registrationId = (await Repairs.GetNextCustomerIdAsync()).Value;
+        await SearchAsync();
     }
 
     private async Task SearchAsync()

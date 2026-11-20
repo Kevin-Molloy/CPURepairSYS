@@ -143,15 +143,21 @@ internal sealed class EfRepairRepository(RepairDbContext db) : IRepairRepository
             query = query.Where(x => x.RepairTypeCode == repairTypeCode.Trim());
         }
 
-        if (status.HasValue)
-        {
-            query = query.Where(x => EF.Property<RepairStatus>(x, "PersistedStatus") == status.Value);
-        }
+        var repairs = await query
+            .OrderByDescending(x => x.StartDate)
+            .ThenByDescending(x => x.Id)
+            .ToListAsync(cancellationToken);
 
+<<<<<<< HEAD
         return await query
             .OrderByDescending(x => x.StartDate)
             .ThenByDescending(x => x.Id)
             .ToListAsync(cancellationToken);
+=======
+        return status.HasValue
+            ? repairs.Where(x => x.EffectiveStatus == status.Value).ToList()
+            : repairs;
+>>>>>>> 4abfafb6e26c7c6776065503c712f99d8eff23cb
     }
 
     public Task AddAsync(Repair repair, CancellationToken cancellationToken = default)
