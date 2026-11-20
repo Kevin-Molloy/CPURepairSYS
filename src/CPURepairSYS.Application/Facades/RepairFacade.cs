@@ -33,12 +33,16 @@ public sealed class RepairFacade(
     public async Task<ApplicationResult<CustomerSummary>> RegisterCustomerAsync(RegisterCustomerRequest request, CancellationToken cancellationToken = default)
     {
         await authorizer.AuthorizeAsync(ApplicationOperation.Create, cancellationToken);
-        if (await customers.PhoneExistsAsync(request.Phone, cancellationToken: cancellationToken))
-            return ApplicationResult<CustomerSummary>.Failure(new ValidationError(nameof(request.Phone), "Phone number is already registered."));
-        if (await customers.EmailExistsAsync(request.Email, cancellationToken: cancellationToken))
-            return ApplicationResult<CustomerSummary>.Failure(new ValidationError(nameof(request.Email), "Email is already registered."));
         try
         {
+            // Validate the supplied values before querying or writing the database.
+            Customer.Create(request.Id, request.FirstName, request.Surname, request.Phone, request.Email);
+
+            if (await customers.PhoneExistsAsync(request.Phone, cancellationToken: cancellationToken))
+                return ApplicationResult<CustomerSummary>.Failure(new ValidationError(nameof(request.Phone), "Phone number is already registered."));
+            if (await customers.EmailExistsAsync(request.Email, cancellationToken: cancellationToken))
+                return ApplicationResult<CustomerSummary>.Failure(new ValidationError(nameof(request.Email), "Email is already registered."));
+
             var customer = Customer.Create(
                 await customers.GetNextIdAsync(cancellationToken),
                 request.FirstName,
@@ -51,7 +55,8 @@ public sealed class RepairFacade(
         }
         catch (ArgumentException exception)
         {
-            return ApplicationResult<CustomerSummary>.Failure(new ValidationError(nameof(request), exception.Message));
+            return ApplicationResult<CustomerSummary>.Failure(
+                new ValidationError($"request.{exception.ParamName}", exception.Message));
         }
     }
 

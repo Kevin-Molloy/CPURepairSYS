@@ -72,7 +72,20 @@ public sealed class PartInventoryTests
         Assert.Throws<InvalidDomainOperationException>(() => part.Allocate(3));
 
         part.Discontinue();
+        Assert.Equal(2, part.Quantity);
         Assert.Throws<InvalidDomainOperationException>(() => part.Allocate(1));
+    }
+
+    [Fact]
+    public void ReinstatingPartPreservesItsStockQuantity()
+    {
+        var part = Part.Create(new PartId(1), "CPU", new Money(100), 2, "CPU");
+
+        part.Discontinue();
+        part.Reinstate();
+
+        Assert.Equal(PartStatus.Available, part.Status);
+        Assert.Equal(2, part.Quantity);
     }
 
     [Fact]

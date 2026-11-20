@@ -30,7 +30,8 @@
         <ValidationSummary />
         <div class="form-grid">
             <label>Repair ID <InputNumber class="generated-id" @bind-Value="newRepairId" readonly /></label>
-            <label>Customer ID <InputNumber @bind-Value="newCustomerId" /></label>
+            <label>Customer search phone <input @bind="customerSearchPhone" /></label>
+            <label>Customer search first name <input @bind="customerSearchFirstName" /></label>
             <label>Description <InputText @bind-Value="newRepair.Description" /></label>
             <label>Repair type
                 <InputSelect @bind-Value="newRepair.RepairTypeCode">
@@ -53,6 +54,26 @@
             </label>
             <label>Start date <InputDate @bind-Value="newRepair.StartDate" /></label>
         </div>
+        <button type="button" @onclick="SearchCustomersAsync" disabled="@busy">Find customer</button>
+        @if (customerResults is not null)
+        {
+            if (customerResults.Count == 0)
+            {
+                <p>No customers matched the search.</p>
+            }
+            else
+            {
+                <label>Customer
+                    <select @bind="selectedCustomerId">
+                        <option value="0">Select a customer</option>
+                        @foreach (var customer in customerResults)
+                        {
+                            <option value="@customer.Id.Value">@customer.FirstName @customer.Surname - @customer.Phone</option>
+                        }
+                    </select>
+                </label>
+            }
+        }
         <button type="submit" disabled="@busy">Log repair</button>
     </EditForm>
 </section>
@@ -82,10 +103,13 @@
 @code {
     private string? searchType;
     private string searchStatus = string.Empty;
+    private string? customerSearchPhone;
+    private string? customerSearchFirstName;
     private int newRepairId = 1;
-    private int newCustomerId = 1;
+    private int selectedCustomerId;
     private bool busy;
     private IReadOnlyList<RepairSummary>? repairs;
+    private IReadOnlyList<CustomerSummary>? customerResults;
     private IReadOnlyList<ValidationError> errors = Array.Empty<ValidationError>();
     private RepairForm newRepair = new() { StartDate = DateOnly.FromDateTime(DateTime.Today) };
     private string? successMessage;
@@ -101,6 +125,21 @@
         await RunAsync(() => RepairOperations.SearchRepairsAsync(searchType, status));
     }
 
+    private async Task SearchCustomersAsync()
+    {
+        await RunAsync(async () =>
+        {
+            var result = await RepairOperations.SearchCustomersAsync(customerSearchPhone, customerSearchFirstName);
+            if (result.Succeeded)
+            {
+                customerResults = result.Value;
+                selectedCustomerId = 0;
+            }
+
+            return result;
+        });
+    }
+
     private async Task LogAsync()
     {
         busy = true;
@@ -108,14 +147,21 @@
         successMessage = null;
         try
         {
+            if (selectedCustomerId == 0)
+            {
+                errors = new[] { new ValidationError(nameof(selectedCustomerId), "Select a customer before logging the repair.") };
+                return;
+            }
+
             var result = await RepairOperations.LogRepairAsync(new LogRepairRequest(
                 new RepairId(newRepairId), newRepair.Description, newRepair.RepairTypeCode,
-                new CustomerId(newCustomerId), newRepair.StartDate));
+                new CustomerId(selectedCustomerId), newRepair.StartDate));
             errors = result.Errors;
             if (result.Succeeded)
             {
                 newRepair = new RepairForm { StartDate = DateOnly.FromDateTime(DateTime.Today) };
-                newCustomerId = 1;
+                selectedCustomerId = 0;
+                customerResults = null;
                 newRepairId = (await RepairOperations.GetNextRepairIdAsync()).Value;
                 successMessage = "Repair logged successfully.";
             }
@@ -135,7 +181,13 @@
         {
             var result = await operation();
             errors = result.Errors;
-            if (result.Succeeded && result.Value is IReadOnlyList<RepairSummary> found) repairs = found;
+            if (result.Succeeded && result.Value is IReadOnlyList<RepairSummary> found)
+            {
+                repairs = found
+                    .OrderByDescending(repair => repair.StartDate ?? DateOnly.MinValue)
+                    .ThenByDescending(repair => repair.Id.Value)
+                    .ToList();
+            }
         }
         catch (Exception exception) { errors = UserFacingErrors.From(exception); }
         finally { busy = false; }

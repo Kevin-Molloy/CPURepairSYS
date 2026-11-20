@@ -4,7 +4,7 @@
 @inject InventoryFacade InventoryOperations
 
 <PageTitle>Create estimate</PageTitle>
-<h1>Create estimate for repair @RepairId</h1>
+<h1>Create estimate for repair @repairDescription</h1>
 
 <section class="form-card">
     <div class="form-grid">
@@ -23,16 +23,26 @@
     <button @onclick="SearchPartsAsync" disabled="@busy">Search parts</button>
     @if (partResults is not null)
     {
-        <InputSelect TValue="int" @bind-Value="selectedPartId">
-            <option value="0">Select a part</option>
-            @foreach (var part in partResults)
-            {
-                <option value="@part.Id.Value">@part.Description (@part.PartTypeCode)</option>
-            }
-        </InputSelect>
-        <button @onclick="AddLine" disabled="@busy || selectedPartId == 0">Add part</button>
+        <label>Part to add
+            <select value="@selectedPartId" @onchange="PartSelectionChanged">
+                <option value="0">Select a part</option>
+                @foreach (var part in partResults)
+                {
+                    <option value="@part.Id.Value">@part.Description (@part.PartTypeCode)</option>
+                }
+            </select>
+        </label>
+        <button type="button" @onclick="AddLine" disabled="@busy || selectedPartId == 0">Add part</button>
     }
-    <button @onclick="SaveAsync" disabled="@busy || lines.Count == 0">Save estimate</button>
+    <button type="button" @onclick="SaveAsync" disabled="@busy || lines.Count == 0">Save estimate</button>
+    @if (partResults is not null && selectedPartId == 0)
+    {
+        <p>Select a part above to enable <strong>Add part</strong>.</p>
+    }
+    @if (lines.Count == 0)
+    {
+        <p>Add at least one part to enable <strong>Save estimate</strong>.</p>
+    }
 </section>
 
 <PageErrors Errors="errors" />
@@ -49,6 +59,7 @@
 
 @code {
     [Parameter] public int RepairId { get; set; }
+    private string repairDescription = "Loading...";
     private string? partSearch;
     private string? partType;
     private int selectedPartId;
@@ -59,13 +70,43 @@
     private IReadOnlyList<PartSummary>? partResults;
     private static readonly string[] PartTypes = ["PROC", "GCARD", "FAN", "CASE", "BATT", "POWSUP", "MTHBRD", "COOL", "RAM", "STOR", "WIFIADAP", "SCRN", "MULT", "OTH"];
 
+    protected override async Task OnParametersSetAsync()
+    {
+        var result = await RepairOperations.GetRepairAsync(new RepairId(RepairId));
+        if (result.Succeeded && result.Value is not null)
+        {
+            repairDescription = result.Value.Description;
+        }
+        else
+        {
+            errors = result.Errors;
+        }
+    }
+
+    private void PartSelectionChanged(ChangeEventArgs args)
+    {
+        selectedPartId = int.TryParse(args.Value?.ToString(), out var partId) ? partId : 0;
+    }
+
     private async Task SearchPartsAsync()
     {
         busy = true;
-        var result = await InventoryOperations.SearchPartsForEstimateAsync(partSearch, partType);
-        errors = result.Errors;
-        partResults = result.Value;
-        busy = false;
+        errors = Array.Empty<ValidationError>();
+        try
+        {
+            var result = await InventoryOperations.SearchPartsForEstimateAsync(partSearch, partType);
+            errors = result.Errors;
+            partResults = result.Value;
+            selectedPartId = 0;
+        }
+        catch (Exception exception)
+        {
+            errors = UserFacingErrors.From(exception);
+        }
+        finally
+        {
+            busy = false;
+        }
     }
 
     private void AddLine()

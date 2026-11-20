@@ -22,10 +22,18 @@
         <ValidationSummary />
         <div class="form-grid">
             <label>Customer ID <InputNumber class="generated-id" @bind-Value="registrationId" readonly /></label>
-            <label>First name <InputText @bind-Value="registration.FirstName" /></label>
-            <label>Surname <InputText @bind-Value="registration.Surname" /></label>
-            <label>Phone <InputText @bind-Value="registration.Phone" /></label>
-            <label>Email <InputText @bind-Value="registration.Email" /></label>
+            <label>First name <InputText @bind-Value="registration.FirstName" />
+                <ValidationMessage For="() => registration.FirstName" />
+            </label>
+            <label>Surname <InputText @bind-Value="registration.Surname" />
+                <ValidationMessage For="() => registration.Surname" />
+            </label>
+            <label>Phone <InputText @bind-Value="registration.Phone" />
+                <ValidationMessage For="() => registration.Phone" />
+            </label>
+            <label>Email <InputText @bind-Value="registration.Email" />
+                <ValidationMessage For="() => registration.Email" />
+            </label>
         </div>
         <button type="submit" disabled="@busy">Register</button>
     </EditForm>
@@ -114,7 +122,9 @@
         }
         catch (Exception exception)
         {
-            errors = UserFacingErrors.From(exception);
+            errors = exception is ArgumentException
+                ? UserFacingErrors.From(exception, "Phone")
+                : UserFacingErrors.From(exception);
         }
         finally { busy = false; }
     }
@@ -159,7 +169,11 @@
             errors = result.Errors;
             if (result.Succeeded && result.Value is IReadOnlyList<CustomerSummary> found)
             {
-                customers = found;
+                customers = found
+                    .OrderByDescending(customer => customer.Id.Value)
+                    .ThenBy(customer => customer.Surname)
+                    .ThenBy(customer => customer.FirstName)
+                    .ToList();
             }
         }
         catch (Exception exception)

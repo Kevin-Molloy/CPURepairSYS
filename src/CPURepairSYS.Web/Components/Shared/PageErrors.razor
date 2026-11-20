@@ -3,11 +3,30 @@
     <div class="errors" role="alert">
         @foreach (var error in Errors)
         {
-            <p><strong>@error.Field:</strong> @error.Message</p>
+            <p><strong>@FieldLabel(error.Field):</strong></p>
+            <pre class="error-details">@error.Message</pre>
         }
     </div>
 }
 
 @code {
     [Parameter] public IReadOnlyList<ValidationError> Errors { get; set; } = Array.Empty<ValidationError>();
+
+    private static string FieldLabel(string field) => field switch
+    {
+        "request" => "Could not save",
+        "request.Phone" => "Phone",
+        "request.Email" => "Email",
+        "request.firstName" => "First name",
+        "request.surname" => "Surname",
+        "request.value" => "Phone",
+        "selectedCustomerId" => "Customer",
+        "request.CustomerId" => "Customer",
+        "request.Description" => "Description",
+        "request.PartTypeCode" => "Part type",
+        "request.RepairTypeCode" => "Repair type",
+        "id" => "Record",
+        "lines" => "Estimate",
+        _ => field
+    };
 }
