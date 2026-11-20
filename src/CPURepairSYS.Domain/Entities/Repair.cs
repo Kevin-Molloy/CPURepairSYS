@@ -48,9 +48,8 @@ public sealed class Repair
     public DateOnly? CompletedDate { get; private set; }
     public DateOnly? CancelledDate { get; private set; }
     public Money? Price { get; private set; }
-    public RepairStatus Status => PersistedStatus;
-    public RepairStatus EffectiveStatus => PersistedStatus;
-    public RepairStatus PersistedStatus
+    public RepairStatus Status => state.Status;
+    private RepairStatus PersistedStatus
     {
         get => persistedStatus;
         set
@@ -77,12 +76,6 @@ public sealed class Repair
         DateOnly? cancelledDate,
         IEnumerable<RepairItem> estimateItems)
     {
-        var materialisedItems = estimateItems?.ToList() ?? new List<RepairItem>();
-        var effectiveStatus = status == RepairStatus.Logged
-            && price.HasValue
-            && price.Value.Amount > 0
-            ? RepairStatus.Estimated
-            : status;
         var repair = new Repair(id, description, repairTypeCode, customerId, startDate)
         {
             Price = price ?? Money.Zero,
@@ -90,8 +83,8 @@ public sealed class Repair
             CompletedDate = completedDate,
             CancelledDate = cancelledDate
         };
-        repair.items.AddRange(materialisedItems);
-        repair.state = effectiveStatus switch
+        repair.items.AddRange(estimateItems);
+        repair.state = status switch
         {
             RepairStatus.Logged => LoggedState.Instance,
             RepairStatus.Estimated => EstimatedState.Instance,
@@ -100,37 +93,21 @@ public sealed class Repair
             RepairStatus.Cancelled => CancelledState.Instance,
             _ => throw new ArgumentOutOfRangeException(nameof(status))
         };
-        repair.persistedStatus = effectiveStatus;
+        repair.persistedStatus = status;
         return repair;
     }
 
     public void CreateEstimate(IEnumerable<RepairItem> estimateItems)
     {
-        SynchronizeStateWithPersistedStatus();
         var materialisedItems = estimateItems?.ToList() ?? throw new ArgumentNullException(nameof(estimateItems));
         state.CreateEstimate(this, materialisedItems);
     }
 
-    public void Approve(DateOnly date)
-    {
-        SynchronizeStateWithPersistedStatus();
-        state.Approve(this, date);
-    }
+    public void Approve(DateOnly date) => state.Approve(this, date);
 
-    public void Complete(DateOnly date)
-    {
-        SynchronizeStateWithPersistedStatus();
-        state.Complete(this, date);
-    }
+    public void Complete(DateOnly date) => state.Complete(this, date);
 
-    public void Cancel(DateOnly date)
-    {
-        SynchronizeStateWithPersistedStatus();
-        state.Cancel(this, date);
-    }
-
-    private void SynchronizeStateWithPersistedStatus() =>
-        state = CreateState(persistedStatus);
+    public void Cancel(DateOnly date) => state.Cancel(this, date);
 
     internal void ApplyEstimate(IReadOnlyCollection<RepairItem> estimateItems)
     {

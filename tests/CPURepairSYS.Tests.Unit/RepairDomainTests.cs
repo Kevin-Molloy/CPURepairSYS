@@ -42,20 +42,6 @@ public sealed class RepairLifecycleTests
     }
 
     [Fact]
-    public void PersistedEstimatedStatusAllowsApproval()
-    {
-        var repair = CreateRepair();
-        repair.CreateEstimate(new[] { RepairItem.Create(new PartId(27), new Money(802.01m), 1) });
-
-        var stateField = typeof(Repair).GetField("state", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
-        stateField?.SetValue(repair, CPURepairSYS.Domain.States.LoggedState.Instance);
-
-        repair.Approve(new DateOnly(2026, 11, 19));
-
-        Assert.Equal(RepairStatus.Approved, repair.Status);
-    }
-
-    [Fact]
     public void DuplicateEstimatePartsAreRejected()
     {
         var repair = CreateRepair();
@@ -86,20 +72,7 @@ public sealed class PartInventoryTests
         Assert.Throws<InvalidDomainOperationException>(() => part.Allocate(3));
 
         part.Discontinue();
-        Assert.Equal(2, part.Quantity);
         Assert.Throws<InvalidDomainOperationException>(() => part.Allocate(1));
-    }
-
-    [Fact]
-    public void ReinstatingPartPreservesItsStockQuantity()
-    {
-        var part = Part.Create(new PartId(1), "CPU", new Money(100), 2, "CPU");
-
-        part.Discontinue();
-        part.Reinstate();
-
-        Assert.Equal(PartStatus.Available, part.Status);
-        Assert.Equal(2, part.Quantity);
     }
 
     [Fact]

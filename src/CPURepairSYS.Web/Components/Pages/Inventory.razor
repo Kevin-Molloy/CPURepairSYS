@@ -74,7 +74,6 @@
 
 @if (parts is not null)
 {
-    <p>Discontinued parts have zero stock. Enter a restore quantity and choose <strong>Restore part</strong> to make one available again.</p>
     <table>
         <thead><tr><th>ID</th><th>Description</th><th>Price</th><th>Quantity</th><th>Status</th><th>Action</th></tr></thead>
         <tbody>
@@ -90,7 +89,8 @@
                     }
                     else
                     {
-                        <button @onclick="() => ReinstateAsync(part.Id)" disabled="@busy">Restore part</button>
+                        <InputNumber @bind-Value="restoreQuantity" />
+                        <button @onclick="() => ReinstateAsync(part.Id)" disabled="@busy">Restore</button>
                     }
                 </td>
             </tr>
@@ -109,6 +109,7 @@
     private PartForm newPart = new();
     private PartEditForm? editingPart;
     private string? successMessage;
+    private int restoreQuantity = 1;
 
     protected override async Task OnInitializedAsync()
     {
@@ -154,7 +155,7 @@
 
     private async Task ReinstateAsync(PartId id)
     {
-        var result = await InventoryOperations.ReinstatePartAsync(id);
+        var result = await InventoryOperations.ReinstatePartAsync(id, restoreQuantity);
         errors = result.Errors;
         if (result.Succeeded && result.Value is PartSummary updated && parts is not null)
         {

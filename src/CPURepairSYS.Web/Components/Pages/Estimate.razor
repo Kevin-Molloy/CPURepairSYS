@@ -4,7 +4,7 @@
 @inject InventoryFacade InventoryOperations
 
 <PageTitle>Create estimate</PageTitle>
-<h1>Create estimate for repair @repairDescription</h1>
+<h1>Create estimate for repair @RepairId</h1>
 
 <section class="form-card">
     <div class="form-grid">
@@ -70,10 +70,9 @@
 
 @code {
     [Parameter] public int RepairId { get; set; }
-    private string repairDescription = "Loading...";
     private string? partSearch;
     private string? partType;
-    private string selectedPartId = "0";
+    private int selectedPartId;
     private int quantity = 1;
     private bool busy;
     private List<EstimateLineRequest> lines = new();
@@ -142,9 +141,9 @@
     private void AddLine()
     {
         if (quantity <= 0) errors = new[] { new ValidationError(nameof(quantity), "Quantity must be positive.") };
-        else if (!int.TryParse(selectedPartId, out var partId) || partId == 0) errors = new[] { new ValidationError(nameof(selectedPartId), "Select a part.") };
-        else if (lines.Any(line => line.PartId.Value == partId)) errors = new[] { new ValidationError(nameof(selectedPartId), "Part is already selected.") };
-        else { lines.Add(new EstimateLineRequest(new PartId(partId), quantity)); errors = Array.Empty<ValidationError>(); }
+        else if (selectedPartId == 0) errors = new[] { new ValidationError(nameof(selectedPartId), "Select a part.") };
+        else if (lines.Any(line => line.PartId.Value == selectedPartId)) errors = new[] { new ValidationError(nameof(selectedPartId), "Part is already selected.") };
+        else { lines.Add(new EstimateLineRequest(new PartId(selectedPartId), quantity)); errors = Array.Empty<ValidationError>(); }
     }
 
     private async Task SaveAsync()

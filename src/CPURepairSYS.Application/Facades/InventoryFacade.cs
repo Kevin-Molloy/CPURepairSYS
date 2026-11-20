@@ -90,17 +90,21 @@ public sealed class InventoryFacade(IPartRepository parts, IUnitOfWork unitOfWor
         }
     }
 
-    public async Task<ApplicationResult<PartSummary>> ReinstatePartAsync(PartId id, CancellationToken cancellationToken = default)
+    public async Task<ApplicationResult<PartSummary>> ReinstatePartAsync(PartId id, int quantity, CancellationToken cancellationToken = default)
     {
         await authorizer.AuthorizeAsync(ApplicationOperation.Update, cancellationToken);
         var part = await parts.GetByIdAsync(id, cancellationToken);
         if (part is null) return ApplicationResult<PartSummary>.Failure(new ValidationError(nameof(id), "Part does not exist."));
         try
         {
-            part.Reinstate();
+            part.Reinstate(quantity);
             parts.Update(part);
             await unitOfWork.SaveChangesAsync(cancellationToken);
             return ApplicationResult<PartSummary>.Success(ToSummary(part));
+        }
+        catch (ArgumentOutOfRangeException exception)
+        {
+            return ApplicationResult<PartSummary>.Failure(new ValidationError(nameof(quantity), exception.Message));
         }
         catch (InvalidDomainOperationException exception)
         {

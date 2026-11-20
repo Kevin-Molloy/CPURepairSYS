@@ -18,27 +18,11 @@ internal sealed class EfCustomerRepository(RepairDbContext db) : ICustomerReposi
     public Task<Customer?> GetByIdAsync(CustomerId id, CancellationToken cancellationToken = default) =>
         db.Customers.SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
 
-    public async Task<bool> EmailExistsAsync(string email, CustomerId? excludingId = null, CancellationToken cancellationToken = default)
-    {
-        var query = db.Customers.Where(x => x.Email == email.Trim());
-        if (excludingId.HasValue)
-        {
-            query = query.Where(x => x.Id != excludingId.Value);
-        }
+    public Task<bool> EmailExistsAsync(string email, CustomerId? excludingId = null, CancellationToken cancellationToken = default) =>
+        db.Customers.AnyAsync(x => x.Email == email.Trim() && (!excludingId.HasValue || x.Id != excludingId.Value), cancellationToken);
 
-        return await query.CountAsync(cancellationToken) > 0;
-    }
-
-    public async Task<bool> PhoneExistsAsync(PhoneNumber phone, CustomerId? excludingId = null, CancellationToken cancellationToken = default)
-    {
-        var query = db.Customers.Where(x => x.Phone == phone);
-        if (excludingId.HasValue)
-        {
-            query = query.Where(x => x.Id != excludingId.Value);
-        }
-
-        return await query.CountAsync(cancellationToken) > 0;
-    }
+    public Task<bool> PhoneExistsAsync(PhoneNumber phone, CustomerId? excludingId = null, CancellationToken cancellationToken = default) =>
+        db.Customers.AnyAsync(x => x.Phone == phone && (!excludingId.HasValue || x.Id != excludingId.Value), cancellationToken);
 
     public async Task<IReadOnlyList<Customer>> SearchAsync(string? phone, string? firstName, CancellationToken cancellationToken = default)
     {
@@ -54,11 +38,7 @@ internal sealed class EfCustomerRepository(RepairDbContext db) : ICustomerReposi
             query = query.Where(x => x.FirstName.ToUpper().Contains(normalisedName));
         }
 
-        return await query
-            .OrderByDescending(x => x.Id)
-            .ThenBy(x => x.Surname)
-            .ThenBy(x => x.FirstName)
-            .ToListAsync(cancellationToken);
+        return await query.OrderBy(x => x.Surname).ThenBy(x => x.FirstName).ToListAsync(cancellationToken);
     }
 
     public Task AddAsync(Customer customer, CancellationToken cancellationToken = default)
