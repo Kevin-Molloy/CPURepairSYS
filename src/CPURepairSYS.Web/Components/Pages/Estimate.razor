@@ -4,7 +4,7 @@
 @inject InventoryFacade InventoryOperations
 
 <PageTitle>Create estimate</PageTitle>
-<h1>Create estimate for repair @RepairId</h1>
+<h1>Create estimate for repair @repairDescription</h1>
 
 <section class="form-card">
     <div class="form-grid">
@@ -24,11 +24,7 @@
     @if (partResults is not null)
     {
         <label>Part to add
-<<<<<<< HEAD
-            <select value="@selectedPartId" @onchange="PartSelectionChanged">
-=======
             <select @bind="selectedPartId">
->>>>>>> 4abfafb6e26c7c6776065503c712f99d8eff23cb
                 <option value="0">Select a part</option>
                 @foreach (var part in partResults)
                 {
@@ -36,17 +32,10 @@
                 }
             </select>
         </label>
-<<<<<<< HEAD
-        <button type="button" @onclick="AddLine" disabled="@busy || selectedPartId == 0">Add part</button>
-    }
-    <button type="button" @onclick="SaveAsync" disabled="@busy || lines.Count == 0">Save estimate</button>
-    @if (partResults is not null && selectedPartId == 0)
-=======
         <button type="button" @onclick="AddLine" disabled="@(!CanAddPart)">Add part</button>
     }
     <button type="button" @onclick="SaveAsync" disabled="@(busy || lines.Count == 0)">Save estimate</button>
     @if (partResults is not null && PartNotSelected)
->>>>>>> 4abfafb6e26c7c6776065503c712f99d8eff23cb
     {
         <p>Select a part above to enable <strong>Add part</strong>.</p>
     }
@@ -70,9 +59,10 @@
 
 @code {
     [Parameter] public int RepairId { get; set; }
+    private string repairDescription = "Loading...";
     private string? partSearch;
     private string? partType;
-    private int selectedPartId;
+    private string selectedPartId = "0";
     private int quantity = 1;
     private bool busy;
     private List<EstimateLineRequest> lines = new();
@@ -95,24 +85,6 @@
         }
     }
 
-    protected override async Task OnParametersSetAsync()
-    {
-        var result = await RepairOperations.GetRepairAsync(new RepairId(RepairId));
-        if (result.Succeeded && result.Value is not null)
-        {
-            repairDescription = result.Value.Description;
-        }
-        else
-        {
-            errors = result.Errors;
-        }
-    }
-
-    private void PartSelectionChanged(ChangeEventArgs args)
-    {
-        selectedPartId = int.TryParse(args.Value?.ToString(), out var partId) ? partId : 0;
-    }
-
     private async Task SearchPartsAsync()
     {
         busy = true;
@@ -122,11 +94,7 @@
             var result = await InventoryOperations.SearchPartsForEstimateAsync(partSearch, partType);
             errors = result.Errors;
             partResults = result.Value;
-<<<<<<< HEAD
-            selectedPartId = 0;
-=======
             selectedPartId = "0";
->>>>>>> 4abfafb6e26c7c6776065503c712f99d8eff23cb
         }
         catch (Exception exception)
         {
@@ -141,9 +109,9 @@
     private void AddLine()
     {
         if (quantity <= 0) errors = new[] { new ValidationError(nameof(quantity), "Quantity must be positive.") };
-        else if (selectedPartId == 0) errors = new[] { new ValidationError(nameof(selectedPartId), "Select a part.") };
-        else if (lines.Any(line => line.PartId.Value == selectedPartId)) errors = new[] { new ValidationError(nameof(selectedPartId), "Part is already selected.") };
-        else { lines.Add(new EstimateLineRequest(new PartId(selectedPartId), quantity)); errors = Array.Empty<ValidationError>(); }
+        else if (!int.TryParse(selectedPartId, out var partId) || partId == 0) errors = new[] { new ValidationError(nameof(selectedPartId), "Select a part.") };
+        else if (lines.Any(line => line.PartId.Value == partId)) errors = new[] { new ValidationError(nameof(selectedPartId), "Part is already selected.") };
+        else { lines.Add(new EstimateLineRequest(new PartId(partId), quantity)); errors = Array.Empty<ValidationError>(); }
     }
 
     private async Task SaveAsync()

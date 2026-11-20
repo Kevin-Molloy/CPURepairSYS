@@ -128,16 +128,10 @@ internal sealed class EfRepairRepository(RepairDbContext db) : IRepairRepository
             .ThenByDescending(x => x.Id)
             .ToListAsync(cancellationToken);
 
-<<<<<<< HEAD
         return await query
             .OrderByDescending(x => x.StartDate)
             .ThenByDescending(x => x.Id)
             .ToListAsync(cancellationToken);
-=======
-        return status.HasValue
-            ? repairs.Where(x => x.EffectiveStatus == status.Value).ToList()
-            : repairs;
->>>>>>> 4abfafb6e26c7c6776065503c712f99d8eff23cb
     }
 
     public Task AddAsync(Repair repair, CancellationToken cancellationToken = default)
