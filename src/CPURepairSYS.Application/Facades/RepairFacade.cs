@@ -127,9 +127,13 @@ public sealed class RepairFacade(
     {
         await authorizer.AuthorizeAsync(ApplicationOperation.Search, cancellationToken);
         var repair = await repairs.GetByIdAsync(id, cancellationToken);
-        return repair is null
-            ? ApplicationResult<RepairSummary>.Failure(new ValidationError(nameof(id), "Repair does not exist."))
-            : ApplicationResult<RepairSummary>.Success(ToSummary(repair));
+        if (repair is null)
+        {
+            return ApplicationResult<RepairSummary>.Failure(new ValidationError(nameof(id), "Repair does not exist."));
+        }
+
+        var customer = await customers.GetByIdAsync(repair.CustomerId, cancellationToken);
+        return ApplicationResult<RepairSummary>.Success(ToSummary(repair, customer));
     }
 
     public async Task<ApplicationResult<RepairSummary>> CreateEstimateAsync(RepairId id, IReadOnlyCollection<EstimateLineRequest> lines, CancellationToken cancellationToken = default)
@@ -190,7 +194,8 @@ public sealed class RepairFacade(
             {
                 transition(repair, date);
                 repairs.Update(repair);
-                return ApplicationResult<RepairSummary>.Success(ToSummary(repair));
+                var customer = await customers.GetByIdAsync(repair.CustomerId, token);
+                return ApplicationResult<RepairSummary>.Success(ToSummary(repair, customer));
             }
             catch (InvalidDomainOperationException exception)
             {
@@ -201,4 +206,8 @@ public sealed class RepairFacade(
 
     private static CustomerSummary ToSummary(Customer customer) => new(customer.Id, customer.FirstName, customer.Surname, customer.Phone, customer.Email);
     private static RepairSummary ToSummary(Repair repair) => new(repair.Id, repair.Description, repair.RepairTypeCode, repair.CustomerId, repair.Status, repair.Price ?? Money.Zero, repair.StartDate);
+    private static RepairSummary ToSummary(Repair repair, Customer? customer) =>
+        new(repair.Id, repair.Description, repair.RepairTypeCode, repair.CustomerId, repair.Status,
+            repair.Price ?? Money.Zero, repair.StartDate,
+            customer is null ? string.Empty : $"{customer.FirstName} {customer.Surname}".Trim());
 }

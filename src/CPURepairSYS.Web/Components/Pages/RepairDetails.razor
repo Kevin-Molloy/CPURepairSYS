@@ -13,6 +13,7 @@ else if (repair is not null)
 {
     <dl class="details">
         <dt>ID</dt><dd>@repair.Id.Value</dd>
+        <dt>Customer</dt><dd>@(string.IsNullOrWhiteSpace(repair.CustomerName) ? $"Customer ID {repair.CustomerId.Value}" : repair.CustomerName)</dd>
         <dt>Description</dt><dd>@repair.Description</dd>
         <dt>Type</dt><dd>@repair.RepairTypeCode</dd>
         <dt>Status</dt><dd>@repair.Status</dd>
