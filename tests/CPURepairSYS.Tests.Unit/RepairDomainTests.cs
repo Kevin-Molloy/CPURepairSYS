@@ -82,4 +82,20 @@ public sealed class PartInventoryTests
         Assert.Throws<ArgumentException>(() => new PhoneNumber("01-234"));
         Assert.Equal(new PhoneNumber("01234"), new PhoneNumber("01234"));
     }
+
+    [Fact]
+    public void CustomerAndPartInputValidatorsRejectInvalidFields()
+    {
+        Assert.Throws<ArgumentException>(() =>
+            Customer.Create(new CustomerId(1), "", "Smith", new PhoneNumber("087123"), "alex@example.com"));
+        Assert.Throws<ArgumentException>(() =>
+            Part.Create(new PartId(1), "", new Money(10), 1, "PROC"));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new Money(-1));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            RepairItem.Create(new PartId(1), new Money(10), 0));
+        Assert.Equal(0, new CustomerId(0).Value);
+        Assert.Equal(0, new PartId(0).Value);
+        Assert.Equal(0, new RepairId(0).Value);
+    }
 }

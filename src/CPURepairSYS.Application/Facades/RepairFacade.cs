@@ -18,10 +18,10 @@ public sealed class RepairFacade(
     IApplicationAuthorizer authorizer)
 {
     public Task<CustomerId> GetNextCustomerIdAsync(CancellationToken cancellationToken = default) =>
-        customers.GetNextIdAsync(cancellationToken);
+        Task.FromResult(new CustomerId(0));
 
     public Task<RepairId> GetNextRepairIdAsync(CancellationToken cancellationToken = default) =>
-        repairs.GetNextIdAsync(cancellationToken);
+        Task.FromResult(new RepairId(0));
 
     public async Task<ApplicationResult<IReadOnlyList<CustomerSummary>>> SearchCustomersAsync(string? phone, string? firstName, CancellationToken cancellationToken = default)
     {
@@ -40,7 +40,7 @@ public sealed class RepairFacade(
         try
         {
             var customer = Customer.Create(
-                await customers.GetNextIdAsync(cancellationToken),
+                new CustomerId(0),
                 request.FirstName,
                 request.Surname,
                 request.Phone,
@@ -92,7 +92,7 @@ public sealed class RepairFacade(
         try
         {
             var repair = factory.Create(
-                await repairs.GetNextIdAsync(cancellationToken),
+                new RepairId(0),
                 request.Description,
                 request.RepairTypeCode,
                 request.CustomerId,

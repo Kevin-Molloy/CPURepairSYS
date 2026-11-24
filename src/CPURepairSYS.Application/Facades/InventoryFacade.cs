@@ -11,7 +11,7 @@ namespace CPURepairSYS.Application.Facades;
 public sealed class InventoryFacade(IPartRepository parts, IUnitOfWork unitOfWork, IApplicationAuthorizer authorizer)
 {
     public Task<PartId> GetNextPartIdAsync(CancellationToken cancellationToken = default) =>
-        parts.GetNextIdAsync(cancellationToken);
+        Task.FromResult(new PartId(0));
 
     public async Task<ApplicationResult<IReadOnlyList<PartSummary>>> SearchPartsAsync(string? description, bool availableOnly, CancellationToken cancellationToken = default)
     {
@@ -35,7 +35,7 @@ public sealed class InventoryFacade(IPartRepository parts, IUnitOfWork unitOfWor
         try
         {
             var part = Part.Create(
-                await parts.GetNextIdAsync(cancellationToken),
+                new PartId(0),
                 request.Description,
                 request.Price,
                 request.Quantity,

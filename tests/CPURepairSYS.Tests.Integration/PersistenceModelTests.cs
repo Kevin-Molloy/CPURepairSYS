@@ -23,5 +23,14 @@ public sealed class PersistenceModelTests
         Assert.Equal(2, model.FindEntityType(typeof(RepairItem))!.FindPrimaryKey()!.Properties.Count);
         Assert.Equal("SEQ_REPAIRS.NEXTVAL", model.FindEntityType(typeof(Repair))!
             .FindProperty(nameof(Repair.Id))!.GetDefaultValueSql());
+        Assert.Equal("SEQ_CUSTOMERS.NEXTVAL", model.FindEntityType(typeof(Customer))!
+            .FindProperty(nameof(Customer.Id))!.GetDefaultValueSql());
+        Assert.Equal("SEQ_PARTS.NEXTVAL", model.FindEntityType(typeof(Part))!
+            .FindProperty(nameof(Part.Id))!.GetDefaultValueSql());
+
+        Assert.True(model.FindEntityType(typeof(Part))!
+            .FindProperty(nameof(Part.Quantity))!.IsConcurrencyToken);
+        Assert.True(model.FindEntityType(typeof(Repair))!
+            .FindProperty(nameof(Repair.PersistedStatus))!.IsConcurrencyToken);
     }
 }

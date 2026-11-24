@@ -1,0 +1,52 @@
+@startuml
+title CPURepairSYS Phase 8 Architecture
+
+actor Staff
+
+package "CPURepairSYS.Web" {
+  component "Razor Interactive Server" as UI
+  component "DevelopmentAuthorizer" as Auth
+}
+
+package "CPURepairSYS.Application" {
+  component "RepairFacade" as RepairFacade
+  component "InventoryFacade" as InventoryFacade
+  component "ReportingFacade" as ReportingFacade
+  component "RepairFactory" as Factory
+  component "ApplicationResult" as Results
+  component "Report Strategies" as Strategies
+}
+
+package "CPURepairSYS.Domain" {
+  component "Customer / Repair / Part" as Domain
+  component "Repair State Machine" as State
+  component "Money / Phone / Identifiers" as Values
+}
+
+package "CPURepairSYS.Infrastructure" {
+  component "EF Core Repositories" as Repositories
+  component "RepairDbContext" as Context
+  component "RepairDataAdapter" as Adapter
+  database "Oracle" as Oracle
+}
+
+Staff --> UI
+UI --> Auth
+UI --> RepairFacade
+UI --> InventoryFacade
+UI --> ReportingFacade
+RepairFacade --> Factory
+RepairFacade --> Domain
+RepairFacade --> Repositories
+InventoryFacade --> Domain
+InventoryFacade --> Repositories
+ReportingFacade --> Strategies
+ReportingFacade --> Repositories
+Factory --> Domain
+State --> Domain
+Values --> Domain
+Repositories --> Context
+Adapter --> Context
+Context --> Oracle
+
+@enduml

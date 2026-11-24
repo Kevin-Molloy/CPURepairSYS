@@ -7,13 +7,8 @@ namespace CPURepairSYS.Infrastructure.Persistence;
 
 internal sealed class EfCustomerRepository(RepairDbContext db) : ICustomerRepository
 {
-    public async Task<CustomerId> GetNextIdAsync(CancellationToken cancellationToken = default)
-    {
-        var maxId = await db.Database
-            .SqlQueryRaw<int>("SELECT NVL(MAX(CustId), 0) AS \"Value\" FROM Customers")
-            .SingleAsync(cancellationToken);
-        return new CustomerId(maxId + 1);
-    }
+    public Task<CustomerId> GetNextIdAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult(new CustomerId(0));
 
     public Task<Customer?> GetByIdAsync(CustomerId id, CancellationToken cancellationToken = default) =>
         db.Customers.SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
@@ -91,13 +86,8 @@ internal sealed class EfCustomerRepository(RepairDbContext db) : ICustomerReposi
 
 internal sealed class EfPartRepository(RepairDbContext db) : IPartRepository
 {
-    public async Task<PartId> GetNextIdAsync(CancellationToken cancellationToken = default)
-    {
-        var maxId = await db.Database
-            .SqlQueryRaw<int>("SELECT NVL(MAX(PartId), 0) AS \"Value\" FROM Parts")
-            .SingleAsync(cancellationToken);
-        return new PartId(maxId + 1);
-    }
+    public Task<PartId> GetNextIdAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult(new PartId(0));
 
     public Task<Part?> GetByIdAsync(PartId id, CancellationToken cancellationToken = default) =>
         db.Parts.SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
@@ -181,13 +171,8 @@ internal sealed class EfPartRepository(RepairDbContext db) : IPartRepository
 
 internal sealed class EfRepairRepository(RepairDbContext db) : IRepairRepository
 {
-    public async Task<RepairId> GetNextIdAsync(CancellationToken cancellationToken = default)
-    {
-        var maxId = await db.Database
-            .SqlQueryRaw<int>("SELECT NVL(MAX(RepairId), 0) AS \"Value\" FROM Repairs")
-            .SingleAsync(cancellationToken);
-        return new RepairId(maxId + 1);
-    }
+    public Task<RepairId> GetNextIdAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult(new RepairId(0));
 
     public Task<Repair?> GetByIdAsync(RepairId id, CancellationToken cancellationToken = default) =>
         db.Repairs.Include(x => x.Items).SingleOrDefaultAsync(x => x.Id == id, cancellationToken);

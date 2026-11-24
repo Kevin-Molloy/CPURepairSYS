@@ -21,7 +21,6 @@
         <DataAnnotationsValidator />
         <ValidationSummary />
         <div class="form-grid">
-            <label>Customer ID <InputNumber class="generated-id" @bind-Value="registrationId" readonly /></label>
             <label>First name <InputText @bind-Value="registration.FirstName" /></label>
             <label>Surname <InputText @bind-Value="registration.Surname" /></label>
             <label>Phone <InputText @bind-Value="registration.Phone" /></label>
@@ -76,25 +75,12 @@
 @code {
     private string? phone;
     private string? firstName;
-    private int registrationId = 1;
     private bool busy;
     private IReadOnlyList<CustomerSummary>? customers;
     private IReadOnlyList<ValidationError> errors = Array.Empty<ValidationError>();
     private CustomerForm registration = new();
     private CustomerEditForm? editingCustomer;
     private string? successMessage;
-
-    protected override async Task OnInitializedAsync()
-    {
-        try
-        {
-            registrationId = (await Repairs.GetNextCustomerIdAsync()).Value;
-        }
-        catch (Exception exception)
-        {
-            errors = UserFacingErrors.From(exception);
-        }
-    }
 
     private async Task SearchAsync()
     {
@@ -109,13 +95,12 @@
         try
         {
             var request = new RegisterCustomerRequest(registration.FirstName, registration.Surname,
-                new PhoneNumber(registration.Phone), registration.Email, new CustomerId(registrationId));
+                new PhoneNumber(registration.Phone), registration.Email, new CustomerId(0));
             var result = await Repairs.RegisterCustomerAsync(request);
             errors = result.Errors;
             if (result.Succeeded)
             {
                 registration = new CustomerForm();
-                registrationId = (await Repairs.GetNextCustomerIdAsync()).Value;
                 successMessage = "Customer registered successfully.";
             }
         }

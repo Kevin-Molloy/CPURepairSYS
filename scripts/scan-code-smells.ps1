@@ -5,10 +5,10 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$project = Join-Path $PSScriptRoot "..\CPURepairSYS.csproj"
+$solution = Join-Path $PSScriptRoot "..\CPURepairSYS.sln"
 $resolvedOutputPath = [System.IO.Path]::GetFullPath((Join-Path (Get-Location) $OutputPath))
 
-dotnet build $project `
+dotnet build $solution `
     --configuration $Configuration `
     /p:ErrorLog="$resolvedOutputPath" `
     /p:ErrorLogVersion=2

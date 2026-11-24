@@ -21,6 +21,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="bunit" Version="1.31.3" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\CPURepairSYS.Web\CPURepairSYS.Web.csproj" />
     <ProjectReference Include="..\..\src\CPURepairSYS.Application\CPURepairSYS.Application.csproj" />
   </ItemGroup>

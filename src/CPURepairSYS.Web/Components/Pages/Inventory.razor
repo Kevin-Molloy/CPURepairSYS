@@ -19,7 +19,6 @@
         <DataAnnotationsValidator />
         <ValidationSummary />
         <div class="form-grid">
-            <label>Part ID <InputNumber class="generated-id" @bind-Value="newPartId" readonly /></label>
             <label>Description <InputText @bind-Value="newPart.Description" /></label>
             <label>Price <InputNumber @bind-Value="newPart.Price" /></label>
             <label>Quantity <InputNumber @bind-Value="newPart.Quantity" /></label>
@@ -101,7 +100,6 @@
 @code {
     private string? searchDescription;
     private bool availableOnly;
-    private int newPartId = 1;
     private bool busy;
     private IReadOnlyList<PartSummary>? parts;
     private IReadOnlyList<ValidationError> errors = Array.Empty<ValidationError>();
@@ -109,18 +107,6 @@
     private PartEditForm? editingPart;
     private string? successMessage;
     private int restoreQuantity = 1;
-
-    protected override async Task OnInitializedAsync()
-    {
-        try
-        {
-            newPartId = (await InventoryOperations.GetNextPartIdAsync()).Value;
-        }
-        catch (Exception exception)
-        {
-            errors = UserFacingErrors.From(exception);
-        }
-    }
 
     private async Task SearchAsync() => await RunAsync(() => InventoryOperations.SearchPartsAsync(searchDescription, availableOnly));
 
@@ -132,12 +118,11 @@
         try
         {
             var result = await InventoryOperations.AddPartAsync(new AddPartRequest(
-                new PartId(newPartId), newPart.Description, new Money(newPart.Price), newPart.Quantity, newPart.PartTypeCode));
+                new PartId(0), newPart.Description, new Money(newPart.Price), newPart.Quantity, newPart.PartTypeCode));
             errors = result.Errors;
             if (result.Succeeded)
             {
                 newPart = new PartForm();
-                newPartId = (await InventoryOperations.GetNextPartIdAsync()).Value;
                 successMessage = "Part added successfully.";
             }
         }

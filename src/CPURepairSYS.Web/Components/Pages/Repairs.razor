@@ -29,7 +29,6 @@
         <DataAnnotationsValidator />
         <ValidationSummary />
         <div class="form-grid">
-            <label>Repair ID <InputNumber class="generated-id" @bind-Value="newRepairId" readonly /></label>
             <label>Search phone <InputText @bind-Value="customerSearchPhone" /></label>
             <label>Search first name <InputText @bind-Value="customerSearchName" /></label>
             <label>Description <InputText @bind-Value="newRepair.Description" /></label>
@@ -62,7 +61,7 @@
                     <option value="0">Select a customer</option>
                     @foreach (var customer in customerResults)
                     {
-                        <option value="1">@customer.FirstName @customer.Surname (@customer.Phone)</option>
+                        <option value="@customer.Id.Value">@customer.FirstName @customer.Surname (@customer.Phone)</option>
                     }
                 </InputSelect>
             </label>
@@ -98,7 +97,6 @@
     private string searchStatus = string.Empty;
     private string? customerSearchPhone;
     private string? customerSearchName;
-    private int newRepairId = 1;
     private int selectedCustomerId;
     private bool repairSearchBusy;
     private bool customerSearchBusy;
@@ -108,18 +106,6 @@
     private IReadOnlyList<ValidationError> errors = Array.Empty<ValidationError>();
     private RepairForm newRepair = new() { StartDate = DateOnly.FromDateTime(DateTime.Today) };
     private string? successMessage;
-
-    protected override async Task OnInitializedAsync()
-    {
-        try
-        {
-            newRepairId = (await RepairOperations.GetNextRepairIdAsync()).Value;
-        }
-        catch (Exception exception)
-        {
-            errors = UserFacingErrors.From(exception);
-        }
-    }
 
     private async Task SearchAsync()
     {
@@ -173,7 +159,7 @@
                 return;
             }
             var result = await RepairOperations.LogRepairAsync(new LogRepairRequest(
-                new RepairId(newRepairId), newRepair.Description, newRepair.RepairTypeCode,
+                new RepairId(0), newRepair.Description, newRepair.RepairTypeCode,
                 new CustomerId(selectedCustomerId), newRepair.StartDate));
             errors = result.Errors;
             if (result.Succeeded)
@@ -181,7 +167,6 @@
                 newRepair = new RepairForm { StartDate = DateOnly.FromDateTime(DateTime.Today) };
                 selectedCustomerId = 0;
                 customerResults = Array.Empty<CustomerSummary>();
-                newRepairId = (await RepairOperations.GetNextRepairIdAsync()).Value;
                 successMessage = "Repair logged successfully.";
             }
         }

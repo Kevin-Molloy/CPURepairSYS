@@ -86,6 +86,7 @@ internal sealed class PartConfiguration : IEntityTypeConfiguration<Part>
         builder.Property(x => x.Price).HasColumnName("PRICE").HasPrecision(5, 2)
             .HasConversion(x => x.Amount, x => new Money(x));
         builder.Property(x => x.Quantity).HasColumnName("QUANTITY").IsRequired();
+        builder.Property(x => x.Quantity).IsConcurrencyToken();
         builder.Property(x => x.Status).HasColumnName("STATUS").HasMaxLength(1)
             .HasConversion(new ValueConverter<PartStatus, string>(x => PersistenceConversions.PartStatusToCode(x), x => PersistenceConversions.CodeToPartStatus(x)));
         builder.Property(x => x.PartTypeCode).HasColumnName("PARTTYPECODE").HasMaxLength(8).IsRequired();
@@ -104,6 +105,7 @@ internal sealed class RepairConfiguration : IEntityTypeConfiguration<Repair>
         builder.Property(x => x.Description).HasColumnName("DESCRIPTION").HasMaxLength(200).IsRequired();
         builder.Property(x => x.PersistedStatus).HasColumnName("STATUS").HasMaxLength(2)
             .HasConversion(new ValueConverter<RepairStatus, string>(x => PersistenceConversions.RepairStatusToCode(x), x => PersistenceConversions.CodeToRepairStatus(x)));
+        builder.Property(x => x.PersistedStatus).IsConcurrencyToken();
         builder.Property(x => x.Price).HasColumnName("PRICE").HasPrecision(6, 2)
             .HasConversion(new ValueConverter<Money?, decimal?>(
                 x => x.HasValue ? x.Value.Amount : null,
