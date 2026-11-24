@@ -86,7 +86,14 @@
 
     protected override async Task OnInitializedAsync()
     {
-        registrationId = (await Repairs.GetNextCustomerIdAsync()).Value;
+        try
+        {
+            registrationId = (await Repairs.GetNextCustomerIdAsync()).Value;
+        }
+        catch (Exception exception)
+        {
+            errors = UserFacingErrors.From(exception);
+        }
     }
 
     private async Task SearchAsync()

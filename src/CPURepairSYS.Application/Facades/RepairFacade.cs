@@ -141,31 +141,22 @@ public sealed class RepairFacade(
             if (repair is null) return ApplicationResult<RepairSummary>.Failure(new ValidationError(nameof(id), "Repair does not exist."));
             if (lines.Count == 0) return ApplicationResult<RepairSummary>.Failure(new ValidationError(nameof(lines), "An estimate must contain at least one part."));
             if (lines.Any(line => line.Quantity <= 0)) return ApplicationResult<RepairSummary>.Failure(new ValidationError(nameof(lines), "Estimate quantities must be positive."));
-            if (lines.GroupBy(line => line.PartId).Any(group => group.Count() > 1))
-            {
-                return ApplicationResult<RepairSummary>.Failure(new ValidationError(nameof(lines), "An estimate cannot contain duplicate parts."));
-            }
 
             try
             {
                 var items = new List<RepairItem>();
-                var selectedParts = new List<(Part Part, EstimateLineRequest Line)>();
-                foreach (var line in lines)
+                foreach (var group in lines.GroupBy(line => line.PartId))
                 {
-                    var part = await parts.GetByIdAsync(line.PartId, token);
-                    if (part is null) return ApplicationResult<RepairSummary>.Failure(new ValidationError(nameof(line.PartId), "Part does not exist."));
-                    if (part.Status != PartStatus.Available || line.Quantity > part.Quantity)
+                    var quantity = group.Sum(line => line.Quantity);
+                    var part = await parts.GetByIdAsync(group.Key, token);
+                    if (part is null) return ApplicationResult<RepairSummary>.Failure(new ValidationError(nameof(group.Key), "Part does not exist."));
+                    if (part.Status != PartStatus.Available || quantity > part.Quantity)
                     {
-                        return ApplicationResult<RepairSummary>.Failure(new ValidationError(nameof(line.PartId), "Part does not have sufficient available stock."));
+                        return ApplicationResult<RepairSummary>.Failure(new ValidationError(nameof(group.Key), "Part does not have sufficient available stock."));
                     }
-                    selectedParts.Add((part, line));
-                }
-
-                foreach (var (part, line) in selectedParts)
-                {
-                    part.Allocate(line.Quantity);
+                    part.Allocate(quantity);
                     parts.Update(part);
-                    items.Add(RepairItem.Create(part.Id, part.Price, line.Quantity));
+                    items.Add(RepairItem.Create(part.Id, part.Price, quantity));
                 }
 
                 repair.CreateEstimate(items);

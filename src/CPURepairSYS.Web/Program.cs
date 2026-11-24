@@ -11,14 +11,16 @@ builder.Logging.AddConsole();
 
 var oracleConnectionString = builder.Configuration.GetConnectionString("Oracle");
 builder.Services.AddScoped<IApplicationAuthorizer, DevelopmentAuthorizer>();
+builder.Services.AddRepairApplication();
+
 if (!string.IsNullOrWhiteSpace(oracleConnectionString))
 {
     builder.Services.AddOracleRepairPersistence(builder.Configuration);
-    builder.Services.AddRepairApplication();
 }
 else
 {
     builder.Logging.AddFilter("CPURepairSYS.Infrastructure", LogLevel.Warning);
+    builder.Services.AddUnavailableRepairPersistence();
 }
 
 // Add services to the container.

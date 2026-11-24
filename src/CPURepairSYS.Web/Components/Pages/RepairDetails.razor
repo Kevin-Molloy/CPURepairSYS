@@ -20,6 +20,7 @@ else if (repair is not null)
         <dt>Start date</dt><dd>@repair.StartDate</dd>
     </dl>
     <div class="actions">
+        <a class="button-link" href="/repairs">Back to repairs</a>
         <button @onclick="ApproveAsync" disabled="@busy">Approve</button>
         <button @onclick="CancelAsync" disabled="@busy">Cancel</button>
         <button @onclick="CompleteAsync" disabled="@busy">Complete</button>
@@ -28,12 +29,18 @@ else if (repair is not null)
 }
 
 <PageErrors Errors="errors" />
+@if (!string.IsNullOrWhiteSpace(successMessage))
+{
+    <p class="success">@successMessage</p>
+}
 
 @code {
     [Parameter] public int RepairId { get; set; }
+    [SupplyParameterFromQuery(Name = "notice")] public string? Notice { get; set; }
     private RepairSummary? repair;
     private bool busy;
     private IReadOnlyList<ValidationError> errors = Array.Empty<ValidationError>();
+    private string? successMessage;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -42,6 +49,13 @@ else if (repair is not null)
             var result = await RepairOperations.GetRepairAsync(new RepairId(RepairId));
             repair = result.Value;
             errors = result.Errors;
+            successMessage = Notice switch
+            {
+                "estimated" => "The customer has been notified of the cost of the repair.",
+                "approved" => "The repair has been approved.",
+                "completed" => "The customer has been contacted.",
+                _ => null
+            };
         }
         catch (Exception exception)
         {
@@ -49,18 +63,29 @@ else if (repair is not null)
         }
     }
 
-    private Task ApproveAsync() => TransitionAsync(() => RepairOperations.ApproveRepairAsync(new RepairId(RepairId), DateOnly.FromDateTime(DateTime.Today)));
+    private Task ApproveAsync() => TransitionAsync(
+        () => RepairOperations.ApproveRepairAsync(new RepairId(RepairId), DateOnly.FromDateTime(DateTime.Today)),
+        "The repair has been approved.");
     private Task CancelAsync() => TransitionAsync(() => RepairOperations.CancelRepairAsync(new RepairId(RepairId), DateOnly.FromDateTime(DateTime.Today)));
-    private Task CompleteAsync() => TransitionAsync(() => RepairOperations.CompleteRepairAsync(new RepairId(RepairId), DateOnly.FromDateTime(DateTime.Today)));
+    private Task CompleteAsync() => TransitionAsync(
+        () => RepairOperations.CompleteRepairAsync(new RepairId(RepairId), DateOnly.FromDateTime(DateTime.Today)),
+        "The customer has been contacted.");
 
-    private async Task TransitionAsync(Func<Task<ApplicationResult<RepairSummary>>> operation)
+    private async Task TransitionAsync(
+        Func<Task<ApplicationResult<RepairSummary>>> operation,
+        string? success = null)
     {
         busy = true;
+        successMessage = null;
         try
         {
             var result = await operation();
             repair = result.Value ?? repair;
             errors = result.Errors;
+            if (result.Succeeded)
+            {
+                successMessage = success;
+            }
         }
         catch (Exception exception) { errors = UserFacingErrors.From(exception); }
         finally { busy = false; }

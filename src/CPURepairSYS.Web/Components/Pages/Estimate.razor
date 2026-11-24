@@ -4,7 +4,7 @@
 @inject InventoryFacade InventoryOperations
 
 <PageTitle>Create estimate</PageTitle>
-<h1>Create estimate for repair @repairDescription</h1>
+<h1>Create estimate for repair @RepairId</h1>
 
 <section class="form-card">
     <div class="form-grid">
@@ -20,29 +20,19 @@
         </label>
         <label>Quantity <InputNumber @bind-Value="quantity" /></label>
     </div>
-    <button @onclick="SearchPartsAsync" disabled="@busy">Search parts</button>
+    <button @onclick="SearchPartsAsync">Search parts</button>
     @if (partResults is not null)
     {
-        <label>Part to add
-            <select @bind="selectedPartId">
-                <option value="0">Select a part</option>
-                @foreach (var part in partResults)
-                {
-                    <option value="@part.Id.Value">@part.Description (@part.PartTypeCode)</option>
-                }
-            </select>
-        </label>
-        <button type="button" @onclick="AddLine" disabled="@(!CanAddPart)">Add part</button>
+        <InputSelect TValue="int" @bind-Value="selectedPartId">
+            <option value="0">Select a part</option>
+            @foreach (var part in partResults)
+            {
+                <option value="@part.Id.Value">@part.Description (@part.PartTypeCode)</option>
+            }
+        </InputSelect>
+        <button type="button" @onclick="AddLine">Add part</button>
     }
-    <button type="button" @onclick="SaveAsync" disabled="@(busy || lines.Count == 0)">Save estimate</button>
-    @if (partResults is not null && PartNotSelected)
-    {
-        <p>Select a part above to enable <strong>Add part</strong>.</p>
-    }
-    @if (lines.Count == 0)
-    {
-        <p>Add at least one part to enable <strong>Save estimate</strong>.</p>
-    }
+    <button @onclick="SaveAsync" disabled="@(lines.Count == 0)">Save estimate</button>
 </section>
 
 <PageErrors Errors="errors" />
@@ -59,72 +49,60 @@
 
 @code {
     [Parameter] public int RepairId { get; set; }
-    private string repairDescription = "Loading...";
     private string? partSearch;
     private string? partType;
-    private string selectedPartId = "0";
+    private int selectedPartId;
     private int quantity = 1;
-    private bool busy;
     private List<EstimateLineRequest> lines = new();
     private IReadOnlyList<ValidationError> errors = Array.Empty<ValidationError>();
     private IReadOnlyList<PartSummary>? partResults;
     private static readonly string[] PartTypes = ["PROC", "GCARD", "FAN", "CASE", "BATT", "POWSUP", "MTHBRD", "COOL", "RAM", "STOR", "WIFIADAP", "SCRN", "MULT", "OTH"];
-    private bool PartNotSelected => selectedPartId == "0";
-    private bool CanAddPart => !busy && !PartNotSelected;
-
-    protected override async Task OnParametersSetAsync()
-    {
-        var result = await RepairOperations.GetRepairAsync(new RepairId(RepairId));
-        if (result.Succeeded && result.Value is not null)
-        {
-            repairDescription = result.Value.Description;
-        }
-        else
-        {
-            errors = result.Errors;
-        }
-    }
 
     private async Task SearchPartsAsync()
     {
-        busy = true;
-        errors = Array.Empty<ValidationError>();
+        selectedPartId = 0;
         try
         {
             var result = await InventoryOperations.SearchPartsForEstimateAsync(partSearch, partType);
             errors = result.Errors;
             partResults = result.Value;
-            selectedPartId = "0";
+            if (result.Succeeded)
+            {
+                if (partResults is null || partResults.Count == 0)
+                {
+                    errors = new[] { new ValidationError(nameof(partResults), "No available parts matched the search.") };
+                }
+                else
+                {
+                    selectedPartId = partResults[0].Id.Value;
+                }
+            }
         }
         catch (Exception exception)
         {
             errors = UserFacingErrors.From(exception);
-        }
-        finally
-        {
-            busy = false;
         }
     }
 
     private void AddLine()
     {
         if (quantity <= 0) errors = new[] { new ValidationError(nameof(quantity), "Quantity must be positive.") };
-        else if (!int.TryParse(selectedPartId, out var partId) || partId == 0) errors = new[] { new ValidationError(nameof(selectedPartId), "Select a part.") };
-        else if (lines.Any(line => line.PartId.Value == partId)) errors = new[] { new ValidationError(nameof(selectedPartId), "Part is already selected.") };
-        else { lines.Add(new EstimateLineRequest(new PartId(partId), quantity)); errors = Array.Empty<ValidationError>(); }
+        else if (selectedPartId == 0) errors = new[] { new ValidationError(nameof(selectedPartId), "Select a part.") };
+        else { lines.Add(new EstimateLineRequest(new PartId(selectedPartId), quantity)); errors = Array.Empty<ValidationError>(); }
     }
 
     private async Task SaveAsync()
     {
-        busy = true;
         try
         {
             var result = await RepairOperations.CreateEstimateAsync(new RepairId(RepairId), lines);
             errors = result.Errors;
-            if (result.Succeeded) Navigation.NavigateTo($"/repairs/{RepairId}");
+            if (result.Succeeded)
+            {
+                Navigation.NavigateTo($"/repairs/{RepairId}?notice=estimated");
+            }
         }
         catch (Exception exception) { errors = UserFacingErrors.From(exception); }
-        finally { busy = false; }
     }
 
     [Inject] private NavigationManager Navigation { get; set; } = null!;

@@ -18,11 +18,50 @@ internal sealed class EfCustomerRepository(RepairDbContext db) : ICustomerReposi
     public Task<Customer?> GetByIdAsync(CustomerId id, CancellationToken cancellationToken = default) =>
         db.Customers.SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
 
-    public Task<bool> EmailExistsAsync(string email, CustomerId? excludingId = null, CancellationToken cancellationToken = default) =>
-        db.Customers.AnyAsync(x => x.Email == email.Trim() && (!excludingId.HasValue || x.Id != excludingId.Value), cancellationToken);
+    public Task<bool> EmailExistsAsync(string email, CustomerId? excludingId = null, CancellationToken cancellationToken = default)
+    {
+        var normalisedEmail = email.Trim();
+        return excludingId.HasValue
+            ? EmailExistsExceptAsync(normalisedEmail, excludingId.Value, cancellationToken)
+            : EmailExistsAsync(normalisedEmail, cancellationToken);
+    }
 
-    public Task<bool> PhoneExistsAsync(PhoneNumber phone, CustomerId? excludingId = null, CancellationToken cancellationToken = default) =>
-        db.Customers.AnyAsync(x => x.Phone == phone && (!excludingId.HasValue || x.Id != excludingId.Value), cancellationToken);
+    public Task<bool> PhoneExistsAsync(PhoneNumber phone, CustomerId? excludingId = null, CancellationToken cancellationToken = default)
+    {
+        return excludingId.HasValue
+            ? PhoneExistsExceptAsync(phone.Value, excludingId.Value, cancellationToken)
+            : PhoneExistsAsync(phone.Value, cancellationToken);
+    }
+
+    private async Task<bool> EmailExistsAsync(string email, CancellationToken cancellationToken) =>
+        await db.Database
+            .SqlQueryRaw<int>(
+                "SELECT COUNT(*) AS \"Value\" FROM Customers WHERE Email = {0}",
+                email)
+            .SingleAsync(cancellationToken) > 0;
+
+    private async Task<bool> EmailExistsExceptAsync(string email, CustomerId excludingId, CancellationToken cancellationToken) =>
+        await db.Database
+            .SqlQueryRaw<int>(
+                "SELECT COUNT(*) AS \"Value\" FROM Customers WHERE Email = {0} AND CustId <> {1}",
+                email,
+                excludingId.Value)
+            .SingleAsync(cancellationToken) > 0;
+
+    private async Task<bool> PhoneExistsAsync(string phone, CancellationToken cancellationToken) =>
+        await db.Database
+            .SqlQueryRaw<int>(
+                "SELECT COUNT(*) AS \"Value\" FROM Customers WHERE Phone = {0}",
+                phone)
+            .SingleAsync(cancellationToken) > 0;
+
+    private async Task<bool> PhoneExistsExceptAsync(string phone, CustomerId excludingId, CancellationToken cancellationToken) =>
+        await db.Database
+            .SqlQueryRaw<int>(
+                "SELECT COUNT(*) AS \"Value\" FROM Customers WHERE Phone = {0} AND CustId <> {1}",
+                phone,
+                excludingId.Value)
+            .SingleAsync(cancellationToken) > 0;
 
     public async Task<IReadOnlyList<Customer>> SearchAsync(string? phone, string? firstName, CancellationToken cancellationToken = default)
     {
@@ -85,10 +124,48 @@ internal sealed class EfPartRepository(RepairDbContext db) : IPartRepository
     public async Task<IReadOnlyList<Part>> SearchAvailableAsync(string? description, CancellationToken cancellationToken = default) =>
         await SearchQuery(description).Where(x => x.Status == PartStatus.Available).ToListAsync(cancellationToken);
 
-    public Task AddAsync(Part part, CancellationToken cancellationToken = default)
+    public async Task AddAsync(Part part, CancellationToken cancellationToken = default)
     {
+        await EnsurePartTypeCodeAsync(part.PartTypeCode, cancellationToken);
         db.Parts.Add(part);
-        return Task.CompletedTask;
+    }
+
+    private async Task EnsurePartTypeCodeAsync(string code, CancellationToken cancellationToken)
+    {
+        var count = await db.Database
+            .SqlQueryRaw<int>(
+                "SELECT COUNT(*) AS \"Value\" FROM PartTypeCodes WHERE PartTypeCode = {0}",
+                code)
+            .SingleAsync(cancellationToken);
+        if (count > 0) return;
+
+        var descriptions = new Dictionary<string, string>
+        {
+            ["PROC"] = "Processor",
+            ["GCARD"] = "Graphics card",
+            ["FAN"] = "Fan",
+            ["CASE"] = "Case",
+            ["BATT"] = "Battery",
+            ["POWSUP"] = "Power supply",
+            ["MTHBRD"] = "Motherboard",
+            ["COOL"] = "Cooling",
+            ["RAM"] = "Memory",
+            ["STOR"] = "Storage",
+            ["WIFIADAP"] = "Wireless adapter",
+            ["SCRN"] = "Screen",
+            ["MULT"] = "Multimedia",
+            ["OTH"] = "Other"
+        };
+
+        if (!descriptions.TryGetValue(code, out var description))
+        {
+            throw new InvalidOperationException($"Unknown part type code '{code}'.");
+        }
+
+        await db.Database.ExecuteSqlRawAsync(
+            "INSERT INTO PartTypeCodes (PartTypeCode, Description) VALUES ({0}, {1})",
+            new object[] { code, description },
+            cancellationToken);
     }
 
     public void Update(Part part) => db.Parts.Update(part);
@@ -117,16 +194,15 @@ internal sealed class EfRepairRepository(RepairDbContext db) : IRepairRepository
 
     public async Task<IReadOnlyList<Repair>> SearchAsync(string? repairTypeCode, RepairStatus? status, CancellationToken cancellationToken = default)
     {
-        var query = db.Repairs.Include(x => x.Items).AsNoTracking();
+        IQueryable<Repair> query = db.Repairs.Include(x => x.Items);
         if (!string.IsNullOrWhiteSpace(repairTypeCode))
         {
             query = query.Where(x => x.RepairTypeCode == repairTypeCode.Trim());
         }
-
-        var repairs = await query
-            .OrderByDescending(x => x.StartDate)
-            .ThenByDescending(x => x.Id)
-            .ToListAsync(cancellationToken);
+        if (status.HasValue)
+        {
+            query = query.Where(x => x.PersistedStatus == status.Value);
+        }
 
         return await query
             .OrderByDescending(x => x.StartDate)
@@ -134,10 +210,48 @@ internal sealed class EfRepairRepository(RepairDbContext db) : IRepairRepository
             .ToListAsync(cancellationToken);
     }
 
-    public Task AddAsync(Repair repair, CancellationToken cancellationToken = default)
+    public async Task AddAsync(Repair repair, CancellationToken cancellationToken = default)
     {
+        await EnsureRepairTypeCodeAsync(repair.RepairTypeCode, cancellationToken);
         db.Repairs.Add(repair);
-        return Task.CompletedTask;
+    }
+
+    private async Task EnsureRepairTypeCodeAsync(string code, CancellationToken cancellationToken)
+    {
+        var count = await db.Database
+            .SqlQueryRaw<int>(
+                "SELECT COUNT(*) AS \"Value\" FROM RepairTypeCodes WHERE RepairTypeCode = {0}",
+                code)
+            .SingleAsync(cancellationToken);
+        if (count > 0) return;
+
+        var descriptions = new Dictionary<string, string>
+        {
+            ["PROC"] = "Processor repair",
+            ["GCARD"] = "Graphics repair",
+            ["FAN"] = "Fan repair",
+            ["CASE"] = "Case repair",
+            ["BATT"] = "Battery repair",
+            ["POWSUP"] = "Power supply repair",
+            ["MTHBRD"] = "Motherboard repair",
+            ["COOL"] = "Cooling repair",
+            ["RAM"] = "Memory repair",
+            ["STOR"] = "Storage repair",
+            ["WIFIADAP"] = "Wireless repair",
+            ["SCRN"] = "Screen repair",
+            ["MULT"] = "Multimedia repair",
+            ["OTH"] = "Other repair"
+        };
+
+        if (!descriptions.TryGetValue(code, out var description))
+        {
+            throw new InvalidOperationException($"Unknown repair type code '{code}'.");
+        }
+
+        await db.Database.ExecuteSqlRawAsync(
+            "INSERT INTO RepairTypeCodes (RepairTypeCode, Description) VALUES ({0}, {1})",
+            new object[] { code, description },
+            cancellationToken);
     }
 
     public void Update(Repair repair) => db.Repairs.Update(repair);

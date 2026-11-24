@@ -49,10 +49,10 @@ public sealed class Repair
     public DateOnly? CancelledDate { get; private set; }
     public Money? Price { get; private set; }
     public RepairStatus Status => state.Status;
-    private RepairStatus PersistedStatus
+    public RepairStatus PersistedStatus
     {
         get => persistedStatus;
-        set
+        private set
         {
             persistedStatus = value;
             state = CreateState(value);
@@ -84,16 +84,7 @@ public sealed class Repair
             CancelledDate = cancelledDate
         };
         repair.items.AddRange(estimateItems);
-        repair.state = status switch
-        {
-            RepairStatus.Logged => LoggedState.Instance,
-            RepairStatus.Estimated => EstimatedState.Instance,
-            RepairStatus.Approved => ApprovedState.Instance,
-            RepairStatus.Completed => CompletedState.Instance,
-            RepairStatus.Cancelled => CancelledState.Instance,
-            _ => throw new ArgumentOutOfRangeException(nameof(status))
-        };
-        repair.persistedStatus = status;
+        repair.PersistedStatus = status;
         return repair;
     }
 
@@ -112,10 +103,6 @@ public sealed class Repair
     internal void ApplyEstimate(IReadOnlyCollection<RepairItem> estimateItems)
     {
         if (estimateItems.Count == 0) throw new InvalidDomainOperationException("An estimate must contain at least one part.");
-        if (estimateItems.GroupBy(item => item.PartId).Any(group => group.Count() > 1))
-        {
-            throw new InvalidDomainOperationException("An estimate cannot contain duplicate parts.");
-        }
 
         items.Clear();
         items.AddRange(estimateItems);

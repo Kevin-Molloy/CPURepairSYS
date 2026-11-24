@@ -89,7 +89,6 @@
                     }
                     else
                     {
-                        <InputNumber @bind-Value="restoreQuantity" />
                         <button @onclick="() => ReinstateAsync(part.Id)" disabled="@busy">Restore</button>
                     }
                 </td>
@@ -113,7 +112,14 @@
 
     protected override async Task OnInitializedAsync()
     {
-        newPartId = (await InventoryOperations.GetNextPartIdAsync()).Value;
+        try
+        {
+            newPartId = (await InventoryOperations.GetNextPartIdAsync()).Value;
+        }
+        catch (Exception exception)
+        {
+            errors = UserFacingErrors.From(exception);
+        }
     }
 
     private async Task SearchAsync() => await RunAsync(() => InventoryOperations.SearchPartsAsync(searchDescription, availableOnly));

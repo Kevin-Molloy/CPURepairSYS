@@ -20,7 +20,7 @@
             </select>
         </label>
     </div>
-    <button @onclick="SearchAsync" disabled="@busy">Search</button>
+    <button @onclick="SearchAsync" disabled="@repairSearchBusy">Search</button>
 </section>
 
 <section class="form-card">
@@ -30,7 +30,8 @@
         <ValidationSummary />
         <div class="form-grid">
             <label>Repair ID <InputNumber class="generated-id" @bind-Value="newRepairId" readonly /></label>
-            <label>Customer ID <InputNumber @bind-Value="newCustomerId" /></label>
+            <label>Search phone <InputText @bind-Value="customerSearchPhone" /></label>
+            <label>Search first name <InputText @bind-Value="customerSearchName" /></label>
             <label>Description <InputText @bind-Value="newRepair.Description" /></label>
             <label>Repair type
                 <InputSelect @bind-Value="newRepair.RepairTypeCode">
@@ -53,7 +54,20 @@
             </label>
             <label>Start date <InputDate @bind-Value="newRepair.StartDate" /></label>
         </div>
-        <button type="submit" disabled="@busy">Log repair</button>
+        <button type="button" @onclick="SearchCustomersAsync">Search customers</button>
+        @if (customerResults.Count > 0)
+        {
+            <label>Customer
+                <InputSelect TValue="int" @bind-Value="selectedCustomerId" disabled="@logBusy">
+                    <option value="0">Select a customer</option>
+                    @foreach (var customer in customerResults)
+                    {
+                        <option value="1">@customer.FirstName @customer.Surname (@customer.Phone)</option>
+                    }
+                </InputSelect>
+            </label>
+        }
+        <button type="submit" disabled="@logBusy">Log repair</button>
     </EditForm>
 </section>
 
@@ -82,17 +96,29 @@
 @code {
     private string? searchType;
     private string searchStatus = string.Empty;
+    private string? customerSearchPhone;
+    private string? customerSearchName;
     private int newRepairId = 1;
-    private int newCustomerId = 1;
-    private bool busy;
+    private int selectedCustomerId;
+    private bool repairSearchBusy;
+    private bool customerSearchBusy;
+    private bool logBusy;
     private IReadOnlyList<RepairSummary>? repairs;
+    private IReadOnlyList<CustomerSummary> customerResults = Array.Empty<CustomerSummary>();
     private IReadOnlyList<ValidationError> errors = Array.Empty<ValidationError>();
     private RepairForm newRepair = new() { StartDate = DateOnly.FromDateTime(DateTime.Today) };
     private string? successMessage;
 
     protected override async Task OnInitializedAsync()
     {
-        newRepairId = (await RepairOperations.GetNextRepairIdAsync()).Value;
+        try
+        {
+            newRepairId = (await RepairOperations.GetNextRepairIdAsync()).Value;
+        }
+        catch (Exception exception)
+        {
+            errors = UserFacingErrors.From(exception);
+        }
     }
 
     private async Task SearchAsync()
@@ -101,21 +127,60 @@
         await RunAsync(() => RepairOperations.SearchRepairsAsync(searchType, status));
     }
 
+    private async Task SearchCustomersAsync()
+    {
+        if (customerSearchBusy) return;
+        customerSearchBusy = true;
+        selectedCustomerId = 0;
+        errors = Array.Empty<ValidationError>();
+        try
+        {
+            var result = await RepairOperations.SearchCustomersAsync(customerSearchPhone, customerSearchName);
+            errors = result.Errors;
+            customerResults = result.Value ?? Array.Empty<CustomerSummary>();
+            if (result.Succeeded)
+            {
+                if (customerResults.Count == 0)
+                {
+                    errors = new[] { new ValidationError(nameof(customerResults), "No customers matched the search.") };
+                }
+                else
+                {
+                    selectedCustomerId = customerResults[0].Id.Value;
+                }
+            }
+        }
+        catch (Exception exception)
+        {
+            errors = UserFacingErrors.From(exception);
+        }
+        finally
+        {
+            customerSearchBusy = false;
+        }
+    }
+
     private async Task LogAsync()
     {
-        busy = true;
+        logBusy = true;
         errors = Array.Empty<ValidationError>();
         successMessage = null;
         try
         {
+            if (selectedCustomerId == 0)
+            {
+                errors = new[] { new ValidationError(nameof(selectedCustomerId), "Select a customer.") };
+                return;
+            }
             var result = await RepairOperations.LogRepairAsync(new LogRepairRequest(
                 new RepairId(newRepairId), newRepair.Description, newRepair.RepairTypeCode,
-                new CustomerId(newCustomerId), newRepair.StartDate));
+                new CustomerId(selectedCustomerId), newRepair.StartDate));
             errors = result.Errors;
             if (result.Succeeded)
             {
                 newRepair = new RepairForm { StartDate = DateOnly.FromDateTime(DateTime.Today) };
-                newCustomerId = 1;
+                selectedCustomerId = 0;
+                customerResults = Array.Empty<CustomerSummary>();
                 newRepairId = (await RepairOperations.GetNextRepairIdAsync()).Value;
                 successMessage = "Repair logged successfully.";
             }
@@ -124,12 +189,12 @@
         {
             errors = UserFacingErrors.From(exception);
         }
-        finally { busy = false; }
+        finally { logBusy = false; }
     }
 
     private async Task RunAsync<T>(Func<Task<ApplicationResult<T>>> operation)
     {
-        busy = true;
+        repairSearchBusy = true;
         errors = Array.Empty<ValidationError>();
         try
         {
@@ -138,7 +203,7 @@
             if (result.Succeeded && result.Value is IReadOnlyList<RepairSummary> found) repairs = found;
         }
         catch (Exception exception) { errors = UserFacingErrors.From(exception); }
-        finally { busy = false; }
+        finally { repairSearchBusy = false; }
     }
 
     private sealed class RepairForm

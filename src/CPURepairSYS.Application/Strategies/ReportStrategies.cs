@@ -11,10 +11,18 @@ public interface IRepairReportStrategy
 
 public sealed class RepairsByYearStrategy : IRepairReportStrategy
 {
-    public IEnumerable<RepairReportRow> Apply(IEnumerable<Repair> repairs, int year, RepairStatus? status) =>
-        repairs.Where(repair => repair.StartDate?.Year == year && (!status.HasValue || repair.Status == status.Value))
+    public IEnumerable<RepairReportRow> Apply(IEnumerable<Repair> repairs, int year, RepairStatus? status)
+    {
+        var matchingRepairs = repairs.Where(repair => repair.StartDate?.Year == year);
+        if (status.HasValue)
+        {
+            matchingRepairs = matchingRepairs.Where(repair => repair.Status == status.Value);
+        }
+
+        return matchingRepairs
             .OrderBy(repair => repair.StartDate)
             .Select(repair => new RepairReportRow(ToSummary(repair), year));
+    }
 
     private static RepairSummary ToSummary(Repair repair) =>
         new(repair.Id, repair.Description, repair.RepairTypeCode, repair.CustomerId, repair.Status, repair.Price ?? Money.Zero, repair.StartDate);
