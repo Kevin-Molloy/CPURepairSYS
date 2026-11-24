@@ -103,6 +103,8 @@ public sealed class Repair
     internal void ApplyEstimate(IReadOnlyCollection<RepairItem> estimateItems)
     {
         if (estimateItems.Count == 0) throw new InvalidDomainOperationException("An estimate must contain at least one part.");
+        if (estimateItems.Select(item => item.PartId).Distinct().Count() != estimateItems.Count)
+            throw new InvalidDomainOperationException("An estimate cannot contain duplicate parts.");
 
         items.Clear();
         items.AddRange(estimateItems);
